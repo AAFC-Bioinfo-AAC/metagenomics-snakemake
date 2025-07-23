@@ -90,16 +90,8 @@ rule extract_unmapped_fastq:
         [ $SAMTOOLS_THREADS -lt 1 ] && SAMTOOLS_THREADS=1
         [ $PIGZ_THREADS -lt 1 ] && PIGZ_THREADS=1
 
-        echo 'Bedtools version:' > {log}
-        bedtools --version >> {log}
-        echo 'Samtools version:' >> {log}
-        samtools --version | head -n 1 >> {log}
-        echo "SAMTOOLS_THREADS: $SAMTOOLS_THREADS" >> {log}
         echo "PIGZ_THREADS: $PIGZ_THREADS" >> {log}
-        start_time=$(date +%s)
-        start_hr=$(date)
-        echo "Started at: $start_hr" >> {log}
-
+        
         TMPDIR="${{TMPDIR:-/tmp}}"
         JOB_ID="${{SLURM_JOB_ID:-manual}}"
         TMPJOB=$(mktemp -d "${{TMPDIR}}/bam2fq_${{JOB_ID}}_XXXXXX" 2>> {log} || echo "/tmp/bam2fq_${{JOB_ID}}_manualtmp")
@@ -110,14 +102,6 @@ rule extract_unmapped_fastq:
             -fq >(pigz -p $PIGZ_THREADS --fast > {output.r1}) \
             -fq2 >(pigz -p $PIGZ_THREADS --fast > {output.r2})
 
-        end_time=$(date +%s)
-        end_hr=$(date)
-        runtime=$((end_time - start_time))
-        hours=$((runtime / 3600))
-        mins=$(((runtime % 3600) / 60))
-        secs=$((runtime % 60))
-        echo "Finished at: $end_hr" >> {log}
-        echo "Wall time: ${{hours}}h ${{mins}}m ${{secs}}s (total ${{runtime}} seconds)" >> {log}
         echo "Temporary directory to be removed: $TMPJOB" >> {log}
         rm -rf "$TMPJOB"
         """
