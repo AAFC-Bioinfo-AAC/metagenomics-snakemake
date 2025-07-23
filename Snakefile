@@ -1,0 +1,141 @@
+'''
+    Filename: Snakefile
+    Author: Katherine James-Gzyl
+    Date created: 2025/07/23
+    Snakemake version: 9.6.0
+'''
+from dotenv import load_dotenv
+import csv
+import os
+import sys
+import glob
+
+configfile: "config/config.yaml"
+
+## Get the pipeline directory (one level up from this Snakefile)
+PIPELINE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+# .env location
+ENV_FILE = os.path.join(PIPELINE_DIR, '.env')
+load_dotenv(ENV_FILE)
+
+## PROJECT ROOT FROM .env###
+PROJECT_ROOT = os.getenv("PROJECT_ROOT")
+if not PROJECT_ROOT:
+    raise ValueError("PROJECT_ROOT not set in .env")
+print("Loaded PROJECT_ROOT:", PROJECT_ROOT)
+
+## Compose all other important paths, always relative to PROJECT_ROOT
+DATA_DIR = os.path.join(PROJECT_ROOT, "data")
+WORKSPACE_DIR = os.path.join(PROJECT_ROOT, "workspace")
+CONFIG_DIR = os.path.join(PIPELINE_DIR, "config")
+
+# Ensure TMPDIR is set, fallback to a default if not
+TMPDIR = os.getenv("TMPDIR", "/gpfs/fs7/aafc/scratch/$USER/tmpdir/malate")
+print(f"DEBUG: Using TMPDIR = {TMPDIR}")
+os.makedirs(TMPDIR, exist_ok=True)
+
+# Ensure RGI_CARD is set, fallback to user CARD DB is no common database is available
+env_rgi_card = os.getenv("RGI_CARD", "").strip()
+if env_rgi_card:
+    RGI_CARD = env_rgi_card
+elif "card_latest" in config:
+    # Join with PROJECT_ROOT if a relative path
+    cfg_card = config["card_latest"]
+    RGI_CARD = os.path.join(PROJECT_ROOT, cfg_card) if not os.path.isabs(cfg_card) else cfg_card
+else:
+    raise ValueError("You must set RGI_CARD in your .env or card_latest in config.yaml!")
+
+if not os.path.exists(RGI_CARD):
+    raise ValueError(f"RGI_CARD path does not exist: {RGI_CARD}")
+
+# Early exit if RGI CARD database cannot be loaded.
+if not os.path.exists(RGI_CARD):
+    sys.exit(f"\nERROR: RGI_CARD not set or path not found: {RGI_CARD}\nEdit .env or config.yaml.\n")
+# Check specifically for card_reference.fasta
+def has_fasta(path):
+    return (
+        os.path.exists(os.path.join(path, "card_reference.fasta")) or
+        any(name.endswith('.fasta') for name in os.listdir(path))
+    )
+
+if not (os.path.exists(f"{RGI_CARD}/card.json")
+        and has_fasta(RGI_CARD)):
+    sys.exit(
+        f"\nERROR: CARD DB not properly prepared at {RGI_CARD} (missing card.json or .fasta).\n"
+        "Please follow manual setup instructions (see pipeline README).\n"
+    )
+
+## Variable set up
+# Join relative config values with PROJECT_ROOT
+READS_DIR = os.path.join(PROJECT_ROOT, config["reads_dir"])
+TRIMMED_DIR = os.path.join(TMPDIR, config["reads_trimmed"])
+HOST_DEP_DIR = os.path.join(PROJECT_ROOT, config["reads_host_dep"])
+KRAKEN_OUTPUT_DIR = os.path.join(PROJECT_ROOT, config["taxonomy_short_reads_dir"])
+CARD_RGI_OUTPUT_DIR = os.path.join(PROJECT_ROOT, config["amr_screening_dir"])
+
+LOG_DIR = os.path.join(PROJECT_ROOT, config["log_files"])
+BOWTIE_INDEX = os.path.join(PROJECT_ROOT, config["bowtie2_index"])
+BOWTIE_INDEX_FILES = [
+    f"{BOWTIE_INDEX}.1.bt2",
+    f"{BOWTIE_INDEX}.2.bt2",
+    f"{BOWTIE_INDEX}.3.bt2",
+    f"{BOWTIE_INDEX}.4.bt2",
+    f"{BOWTIE_INDEX}.rev.1.bt2",
+    f"{BOWTIE_INDEX}.rev.2.bt2"
+]
+
+TAXONOMY_DB = config["gtbd_DB"]
+
+
+## SAMPLES 
+SAMPLESHEET_PATH = os.path.join(CONFIG_DIR, config["samplesheet"])
+
+SAMPLES = dict()
+with open(SAMPLESHEET_PATH, newline='') as csvfile:
+    reader = csv.DictReader(csvfile)
+    for row in reader:
+        fq1 = os.path.join(READS_DIR, row['fastq_1'])  # always resolve relative to reads_dir
+        fq2 = os.path.join(READS_DIR, row['fastq_2'])
+        SAMPLES[row['sample']] = {
+            'fastq_1': fq1,
+            'fastq_2': fq2
+        }
+SAMPLE_NAMES = list(SAMPLES.keys())
+
+## Snakemake modules to include ##
+include: "rules/preprocessing.smk"
+include: "rules/taxonomy.smk"
+include: "rules/amr_short_reads.smk"
+
+## Rule outputs files ##
+rule all:
+    input:
+        #Reads depleted of host and PhiX
+        expand(f"{RRNA_DEP_DIR}/{{sample}}_trimmed_clean_R1.fastq.gz", sample=SAMPLES),
+        expand(f"{RRNA_DEP_DIR}/{{sample}}_trimmed_clean_R2.fastq.gz", sample=SAMPLES),
+        #Taxonomy with Kraken and Bracken
+        expand(f"{KRAKEN_OUTPUT_DIR}/{{sample}}.report.txt", sample=SAMPLES),
+        expand(f"{KRAKEN_OUTPUT_DIR}/{{sample}}.kraken", sample=SAMPLES),
+        expand(f"{KRAKEN_OUTPUT_DIR}/species/{{sample}}_bracken.species.report.txt", sample=SAMPLES),
+        expand(f"{KRAKEN_OUTPUT_DIR}/genus/{{sample}}_bracken.genus.report.txt", sample=SAMPLES),
+        expand(f"{KRAKEN_OUTPUT_DIR}/phylum/{{sample}}_bracken.phylum.report.txt", sample=SAMPLES),
+        # Merged/parsed bracken tables
+        f"{KRAKEN_OUTPUT_DIR}/merged_abundance_species.txt",
+        f"{KRAKEN_OUTPUT_DIR}/merged_abundance_genus.txt",
+        f"{KRAKEN_OUTPUT_DIR}/merged_abundance_phylum.txt",
+        f"{KRAKEN_OUTPUT_DIR}/Bracken_species_raw_abundance.csv",
+        f"{KRAKEN_OUTPUT_DIR}/Bracken_species_relative_abundance.csv",
+        f"{KRAKEN_OUTPUT_DIR}/Bracken_genus_raw_abundance.csv",
+        f"{KRAKEN_OUTPUT_DIR}/Bracken_genus_relative_abundance.csv",
+        f"{KRAKEN_OUTPUT_DIR}/Bracken_phylum_raw_abundance.csv",
+        f"{KRAKEN_OUTPUT_DIR}/Bracken_phylum_relative_abundance.csv",
+        # AMR screening with RGI BWT
+        expand(f"{CARD_RGI_OUTPUT_DIR}/{{sample}}_paired.allele_mapping_data.json", sample=SAMPLES),
+        expand(f"{CARD_RGI_OUTPUT_DIR}/{{sample}}_paired.allele_mapping_data.txt", sample=SAMPLES),
+        # RNA SPAdes Assemblies and RNAQUAST evaluation with busco lineages
+        expand(f"{ASSEMBLIES_DIR}/{{sample}}.fasta", sample=SAMPLES),
+        expand(f"{RNAQUAST_DIR}/{{sample}}_{{lineage}}", sample=SAMPLES, lineage=LINEAGES),
+
+        # Required logs or done markers
+        f"{LOG_DIR}/rgi_reload_db.done",
+        f"{LOG_DIR}/rgi_symlink.done"
