@@ -8,9 +8,9 @@ samplesheet: "samplesheet.csv"
 # Files relative to PROJECT_ROOT
 log_files: "code/metagenomics-snakemake/workflow/logs"
 reads_dir: "data/raw/fastq"
-reads_host_dep: "data/raw/03_host_dep"
-taxonomy_short_reads_dir: "data/04_taxonomy_short_reads"
-amr_screening_dir: "data/05_amr_screening"
+reads_host_dep: "workspace/clean_reads"
+taxonomy_short_reads_dir: "workspace/taxonomy_short_reads"
+amr_screening_dir: "workspace/amr_screening"
 # Files relative to TMPDIR
 reads_trimmed: "fastp_trimmed"
 
