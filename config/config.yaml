@@ -1,0 +1,43 @@
+## Samples ##
+# The samplesheet.csv need to be in the same directory as this config file.
+# The first column of the samplesheet contains the sample names. The second and third columns contain the raw fastq files for each sample.
+samplesheet: "samplesheet.csv"
+
+## File paths for input and output ##
+### File paths for input and output
+# Files relative to PROJECT_ROOT
+log_files: "code/metagenomics-snakemake/workflow/logs"
+reads_dir: "data/raw/fastq"
+reads_host_dep: "data/raw/03_host_dep"
+taxonomy_short_reads_dir: "data/04_taxonomy_short_reads"
+amr_screening_dir: "data/05_amr_screening"
+# Files relative to TMPDIR
+reads_trimmed: "fastp_trimmed"
+
+### File paths for resources  ###
+bowtie2_index: "code/metagenomics-snakemake/resources/bowtie2_index/" ### ADD PREFIX FOR INDEX FILES
+
+### File path for CARD database if the user set it up. This is a fallback if there is no common database
+card_latest: "/code/metagenomics-snakemake/localDB"
+
+### File paths for databases on common drives###
+# Must be absolute paths
+gtbd_DB: "/gpfs/fs7/aafc/common/reference/kraken2_gtdb/release220" ##UPDATE
+
+### Parameters for rules ###
+fastp:
+  threads: 4
+  cut_tail: true
+  cut_front: true
+  cut_mean_quality: 20
+  cut_window_size: 4
+  qualified_quality_phred: 15
+  detect_adapter_for_pe: true
+  length_required: 100
+bowtie2_align:
+  threads: 24
+  bt2_threads: 12
+  view_threads: 4
+  sort_threads: 8
+extract_unmapped_fastq:
+  threads: 60

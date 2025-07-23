@@ -1,0 +1,48 @@
+### How Snakemake will run on SBATCH ###
+cores: 60
+jobs: 10 
+latency-wait: 60 
+rerun-incomplete: true
+retries: 2              
+max-jobs-per-second: 2 
+executor: slurm
+
+
+### Env Vars ###
+envvars:
+  TMPDIR: "/gpfs/fs7/aafc/scratch/$USER/tmpdir"
+
+default-resources:
+  - slurm_account=aafc_aac
+  - slurm_partition=standard
+  - slurm_cluster=gpsc8
+  - runtime=60       # minutes
+  - mem_mb=4000
+  - cpus=1
+
+### Env modules ###
+# use-envmodules: false 
+
+### Conda ###
+use-conda: true
+conda-frontend: mamba   
+
+### Resource scopes ###
+set-resource-scopes:
+  cores: local 
+
+## Per rule resources
+set-resources:
+  fastp_pe:
+    cpus: 2
+    mem_mb: 4000
+    runtime: 40
+    slurm_partition: standard
+    slurm_account: aafc_aac
+
+  bowtie2_align:
+    cpus: 24
+    mem_mb: 48000
+    runtime: 30
+    slurm_partition: standard
+    slurm_account: aafc_aac

@@ -1,0 +1,23 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "ABCC_TEMPLATE: A Reproducible Data Processing Pipeline Template"
+version: 1.0.0
+doi: # Optional if using Zenodo integration
+date-released: 2025-06-01
+authors:
+  - family-names: ABCC core team
+    given-names: 
+    orcid: 
+    affiliation: 
+abstract: >
+  ABCC_TEMPLATE is a modular and extensible template for developing reproducible 
+  data analysis pipelines. It is designed to help researchers and developers quickly
+  set up new projects by providing modular and parameterized components that can be
+  easily adapted to different use cases.
+license: MIT
+repository-code: https://github.com/AAFC-Bioinfo-AAC/template-repository
+keywords:
+  - reproducibility
+  - template
+  - bioinformatics
+  - pipeline

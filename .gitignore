@@ -1,0 +1,14 @@
+__pycache__/
+.snakemake/
+envs/.snakemake/
+.vscode/
+*.egg-info
+
+logs/
+resources/bowtie2_index/
+*.out
+*.err
+localDB/
+
+# Do not ignore the local-wrappers directory, but ignore its contents
+workflow/local-wrappers/*

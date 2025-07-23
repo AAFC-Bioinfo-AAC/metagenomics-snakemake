@@ -1,0 +1,11 @@
+name: bedtools
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - samtools=1.21
+  - htslib=1.21
+  - libdeflate=1.24
+  - bedtools=2.31
+  - pigz=2.6
