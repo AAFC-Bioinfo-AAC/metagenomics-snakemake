@@ -8,4 +8,5 @@ dependencies:
   - samtools=1.21
   - bedtools=2.31
   - pigz=2.6
+  - ncurses
   

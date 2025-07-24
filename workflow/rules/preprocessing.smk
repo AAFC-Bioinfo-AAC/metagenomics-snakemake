@@ -1,7 +1,7 @@
 '''
     Filename: preprocessing.smk
     Author: Katherine James-Gzyl
-    Date created: 2025/07/23
+    Date created: 2025/07/24
     Snakemake version: 9.6.0
 '''
 rule fastp_pe:
@@ -25,7 +25,7 @@ rule fastp_pe:
         cut_window_size = config["fastp"].get("cut_window_size", 4),
         qualified_quality_phred = config["fastp"].get("qualified_quality_phred", 15),
         length_required = config["fastp"].get("length_required", 100)
-    threads: config["fastp"]["threads"]
+    threads: config["fastp"].get("threads", 4)
     conda: "../envs/fastp.yaml"
     shell:
         r"""

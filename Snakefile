@@ -1,22 +1,18 @@
-'''
-    Filename: Snakefile
-    Author: Katherine James-Gzyl
-    Date created: 2025/07/23
-    Snakemake version: 9.6.0
-'''
+configfile: "config/config.yaml"
+
 from dotenv import load_dotenv
 import csv
 import os
 import sys
-import glob
+import glob 
 
-configfile: "config/config.yaml"
-
-## Get the pipeline directory (one level up from this Snakefile)
-PIPELINE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-# .env location
+# Use current working directory to find the project root
+PIPELINE_DIR = os.getcwd()
 ENV_FILE = os.path.join(PIPELINE_DIR, '.env')
-load_dotenv(ENV_FILE)
+print("Looking for .env at:", ENV_FILE)
+
+# Load the .env file
+load_dotenv(ENV_FILE, override=True)
 
 ## PROJECT ROOT FROM .env###
 PROJECT_ROOT = os.getenv("PROJECT_ROOT")
@@ -30,8 +26,17 @@ WORKSPACE_DIR = os.path.join(PROJECT_ROOT, "workspace")
 CONFIG_DIR = os.path.join(PIPELINE_DIR, "config")
 
 # Ensure TMPDIR is set, fallback to a default if not
-TMPDIR = os.getenv("TMPDIR", "/gpfs/fs7/aafc/scratch/$USER/tmpdir/malate")
+# Construct fallback path with $USER properly resolved
+user = os.environ.get("USER")
+if not user:
+    raise ValueError("Environment variable USER is not set.")
+
+fallback_tmpdir = f"/gpfs/fs7/aafc/scratch/{user}/tmpdir/metaT"
+# IMPORTANT: Expand shell vars (e.g. $USER) in TMPDIR if they exist
+TMPDIR = os.path.expandvars(os.getenv("TMPDIR", fallback_tmpdir))
+
 print(f"DEBUG: Using TMPDIR = {TMPDIR}")
+
 os.makedirs(TMPDIR, exist_ok=True)
 
 # Ensure RGI_CARD is set, fallback to user CARD DB is no common database is available
