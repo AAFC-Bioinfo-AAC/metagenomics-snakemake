@@ -68,8 +68,8 @@ rule symlink_rgi_card:
         """
 rule rgi_bwt:
     input:
-        R1 = f"{RRNA_DEP_DIR}/{{sample}}_rRNAdep_R1.fastq.gz",
-        R2 = f"{RRNA_DEP_DIR}/{{sample}}_rRNAdep_R2.fastq.gz",
+        R1 = f"{HOST_DEP_DIR}/{{sample}}_trimmed_clean_R1.fastq.gz",
+        R2 = f"{HOST_DEP_DIR}/{{sample}}_trimmed_clean_R2.fastq.gz",
         symlink_marker = f"{LOG_DIR}/rgi_symlink.done"
     output:
         json = f"{CARD_RGI_OUTPUT_DIR}/{{sample}}_paired.allele_mapping_data.json",
@@ -78,7 +78,7 @@ rule rgi_bwt:
         outprefix = lambda wc: f"{CARD_RGI_OUTPUT_DIR}/{wc.sample}_paired"
     log:
         f"{LOG_DIR}/rgi/bwt_{{sample}}.log"
-    threads: 20
+    threads: config["rgi_bwt"].get("threads", 20)
     conda:
         "../envs/rgi.yaml"
     shell:
@@ -86,19 +86,13 @@ rule rgi_bwt:
         set -o pipefail
 
         mkdir -p $(dirname {log})
-        echo "Running on: $(hostname)" > {log}
 
         # Ensure RGI_DATA_PATH is set to the localDB directory
         export RGI_DATA_PATH=localDB
         echo "RGI_DATA_PATH: $RGI_DATA_PATH" >> {log}
 
         mkdir -p {CARD_RGI_OUTPUT_DIR}
-        start_time=$(date +%s)
-        echo "Started at: $(date)" >> {log}
-        echo 'RGI version:' >> {log}
-        rgi main --version >> {log}
-        echo 'Running rgi bwt...' >> {log}
-
+    
         rgi bwt \
             -1 {input.R1} \
             -2 {input.R2} \
@@ -114,17 +108,4 @@ rule rgi_bwt:
             echo "ERROR: rgi bwt failed with exit code $rgistatus" >> {log}
             exit $rgistatus
         fi
-
-        end_time=$(date +%s)
-        runtime=$((end_time - start_time))
-
-        # Wall time logging
-        end_time=$(date +%s)
-        end_hr=$(date)
-        runtime=$((end_time - start_time))
-        hours=$((runtime / 3600))
-        mins=$(((runtime % 3600) / 60))
-        secs=$((runtime % 60))
-        echo "Finished at: $end_hr" >> {log}
-        echo "Wall time: $hours"h" $mins"m" $secs"s" (total $runtime seconds)" >> {log}
         """

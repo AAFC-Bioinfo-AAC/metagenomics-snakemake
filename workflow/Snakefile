@@ -31,7 +31,7 @@ user = os.environ.get("USER")
 if not user:
     raise ValueError("Environment variable USER is not set.")
 
-fallback_tmpdir = f"/gpfs/fs7/aafc/scratch/{user}/tmpdir/metaT"
+fallback_tmpdir = f"/gpfs/fs7/aafc/scratch/{user}/tmpdir/malate"
 # IMPORTANT: Expand shell vars (e.g. $USER) in TMPDIR if they exist
 TMPDIR = os.path.expandvars(os.getenv("TMPDIR", fallback_tmpdir))
 
@@ -39,7 +39,7 @@ print(f"DEBUG: Using TMPDIR = {TMPDIR}")
 
 os.makedirs(TMPDIR, exist_ok=True)
 
-# Ensure RGI_CARD is set, fallback to user CARD DB is no common database is available
+# Ensure RGI_CARD is set, fallback to user CARD DB if no common database is available
 env_rgi_card = os.getenv("RGI_CARD", "").strip()
 if env_rgi_card:
     RGI_CARD = env_rgi_card
@@ -116,8 +116,8 @@ include: "rules/amr_short_reads.smk"
 rule all:
     input:
         #Reads depleted of host and PhiX
-        expand(f"{RRNA_DEP_DIR}/{{sample}}_trimmed_clean_R1.fastq.gz", sample=SAMPLES),
-        expand(f"{RRNA_DEP_DIR}/{{sample}}_trimmed_clean_R2.fastq.gz", sample=SAMPLES),
+        expand(f"{HOST_DEP_DIR}/{{sample}}_trimmed_clean_R1.fastq.gz", sample=SAMPLES),
+        expand(f"{HOST_DEP_DIR}/{{sample}}_trimmed_clean_R2.fastq.gz", sample=SAMPLES),
         #Taxonomy with Kraken and Bracken
         expand(f"{KRAKEN_OUTPUT_DIR}/{{sample}}.report.txt", sample=SAMPLES),
         expand(f"{KRAKEN_OUTPUT_DIR}/{{sample}}.kraken", sample=SAMPLES),
@@ -137,9 +137,6 @@ rule all:
         # AMR screening with RGI BWT
         expand(f"{CARD_RGI_OUTPUT_DIR}/{{sample}}_paired.allele_mapping_data.json", sample=SAMPLES),
         expand(f"{CARD_RGI_OUTPUT_DIR}/{{sample}}_paired.allele_mapping_data.txt", sample=SAMPLES),
-        # RNA SPAdes Assemblies and RNAQUAST evaluation with busco lineages
-        expand(f"{ASSEMBLIES_DIR}/{{sample}}.fasta", sample=SAMPLES),
-        expand(f"{RNAQUAST_DIR}/{{sample}}_{{lineage}}", sample=SAMPLES, lineage=LINEAGES),
 
         # Required logs or done markers
         f"{LOG_DIR}/rgi_reload_db.done",

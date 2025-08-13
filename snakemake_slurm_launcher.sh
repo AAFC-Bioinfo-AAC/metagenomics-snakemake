@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=snk_metagenomics
+#SBATCH --job-name=test_run_snk_metagenomics
 #SBATCH --output=%x_%A_%a.out
 #SBATCH --error=%x_%A_%a.err
 #SBATCH --cluster=gpsc8
@@ -14,9 +14,7 @@ conda activate snakemake-9.6.0
 export PATH="$PWD/bin:$PATH"
 
   snakemake \
-    --profile /abs/path/to/project/code/profiles/slurm \
-    --configfile /abs/path/to/project/code/config/config.yaml \
-    --conda-prefix /abs/path/to/the/conda/env/ \
-    --printshellcmds \
-    --keep-going \
-    --report /abs/path/to/project/report.html
+    --profile /gpfs/fs7/aafc/projects/J-003518_afc_rdar_malate/code/metagenomics-snakemake/profiles/slurm \
+    --configfile /gpfs/fs7/aafc/projects/J-003518_afc_rdar_malate/code/metagenomics-snakemake/config/config.yaml \
+    --conda-prefix /gpfs/fs7/aafc/projects/J-003518_afc_rdar_malate/code/malate-smk-conda-env \
+    --printshellcmds 

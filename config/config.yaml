@@ -15,16 +15,17 @@ amr_screening_dir: "workspace/amr_screening"
 reads_trimmed: "fastp_trimmed"
 
 ### File paths for resources  ###
-bowtie2_index: "code/metagenomics-snakemake/resources/bowtie2_index/" ### ADD PREFIX FOR INDEX FILES
+bowtie2_index: "code/metagenomics-snakemake/resources/bowtie2_index/Cow_phiX"
 
 ### File path for CARD database if the user set it up. This is a fallback if there is no common database
 card_latest: "/code/metagenomics-snakemake/localDB"
 
 ### File paths for databases on common drives###
 # Must be absolute paths
-gtbd_DB: "/gpfs/fs7/aafc/common/reference/kraken2_gtdb/release220" ##UPDATE
+gtbd_DB: "/gpfs/fs7/aafc/projects/J-002259_milk_microbiome_gut/data/reference/databases/Kraken2_GTDB226_plus_host"
 
 ### Parameters for rules ###
+## preprocessing.smk
 fastp:
   threads: 4
   cut_tail: true
@@ -41,3 +42,13 @@ bowtie2_align:
   sort_threads: 8
 extract_unmapped_fastq:
   threads: 60
+## amr_short_reads.smk
+rgi_bwt:
+  threads: 20
+## taxonomy.smk
+kraken2:
+  threads: 2
+  conf_threshold: "0.5"
+bracken:
+  threads: 2
+  readlen: 150

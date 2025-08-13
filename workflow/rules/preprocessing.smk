@@ -60,7 +60,7 @@ rule bowtie2_align:
         view_threads = config["bowtie2_align"].get("view_threads", 4),
         sort_threads = config["bowtie2_align"].get("sort_threads", 8),
         extra= lambda wc: f"-R '@RG\\tID:{wc.sample}\\tSM:{wc.sample}'"
-    threads: config["bowtie2_align"]["threads"]
+    threads: config["bowtie2_align"].get("threads", 24)
     conda:
         "../envs/bowtie2.yaml"
     shell:
@@ -79,7 +79,7 @@ rule extract_unmapped_fastq:
 
     log:
         f"{LOG_DIR}/bedtools/{{sample}}.log"
-    threads: config["extract_unmapped_fastq"]["threads"]
+    threads: config["extract_unmapped_fastq"].get("threads", 60)
     conda:
         "../envs/bedtools.yaml"
     shell:

@@ -9,8 +9,8 @@ rule kraken2:
         sample = '[^/]+'
     input:
         ref = f"{TAXONOMY_DB}",
-        R1 = f"{RRNA_DEP_DIR}/{{sample}}_rRNAdep_R1.fastq.gz",
-        R2 = f"{RRNA_DEP_DIR}/{{sample}}_rRNAdep_R2.fastq.gz"
+        R1 = f"{HOST_DEP_DIR}/{{sample}}_trimmed_clean_R1.fastq.gz",
+        R2 = f"{HOST_DEP_DIR}/{{sample}}_trimmed_clean_R2.fastq.gz"
     output:
         report = f"{KRAKEN_OUTPUT_DIR}/{{sample}}.report.txt",
         kraken = f"{KRAKEN_OUTPUT_DIR}/{{sample}}.kraken" 
@@ -18,22 +18,12 @@ rule kraken2:
         f"{LOG_DIR}/kraken2/{{sample}}.log"
     conda:
         "../envs/kraken2.yaml"
-    threads: 2
+    threads: config["kraken2"].get("threads", 2)
     params:
-        conf_threshold = "0.5"
+        conf_threshold = config['kraken2'].get("conf_threshold", "0.5")
     shell:
         r"""
         set -euo pipefail
-
-        # Wall time tracking
-        start_time=$(date +%s)
-        start_hr=$(date)
-        echo "Started at: $start_hr" > {log}
-
-        echo 'Kraken2 version:' >> {log}
-        kraken2 --version >> {log}
-        # echo 'Database is GTDB 220' >> {log} #uncomment if there is a text file with the version
-        # cat {input.ref}/VERSION.txt >> {log} #uncomment if there is a text file with the version 
 
         kraken2 --use-names \
             --threads {threads} \
@@ -44,16 +34,6 @@ rule kraken2:
             --report {output.report} \
             --output {output.kraken} \
             &>> {log}
-            
-        # Wall time logging
-        end_time=$(date +%s)
-        end_hr=$(date)
-        runtime=$((end_time - start_time))
-        hours=$((runtime / 3600))
-        mins=$(((runtime % 3600) / 60))
-        secs=$((runtime % 60))
-        echo "Finished at: $end_hr" >> {log}
-        echo "Wall time: $hours"h" $mins"m" $secs"s" (total $runtime seconds)" >> {log}
         """
 rule bracken:
     wildcard_constraints:
@@ -69,20 +49,12 @@ rule bracken:
         f"{LOG_DIR}/bracken/{{sample}}.log"
     conda:
         "../envs/kraken2.yaml"
-    threads: 2
+    threads: config["bracken"].get("threads", 2)
     params:
-        readlen = 150
+        readlen = config["bracken"].get("readlen", 150)
     shell:
         r"""
         set -euo pipefail
-
-        # Wall time tracking
-        start_time=$(date +%s)
-        start_hr=$(date)
-        echo "Started at: $start_hr" > {log}
-
-        echo 'bracken version:' >> {log}
-        bracken --version >> {log}
 
         mkdir -p $(dirname {output.species}) $(dirname {output.genus}) $(dirname {output.phylum})
 
@@ -91,16 +63,6 @@ rule bracken:
         bracken -r {params.readlen} -t {threads} -d {input.ref} -i {input.report} -l G -o {output.genus} &>> {log}
 
         bracken -r {params.readlen} -t {threads} -d {input.ref} -i {input.report} -l P -o {output.phylum} &>> {log}
-
-        # Wall time logging
-        end_time=$(date +%s)
-        end_hr=$(date)
-        runtime=$((end_time - start_time))
-        hours=$((runtime / 3600))
-        mins=$(((runtime % 3600) / 60))
-        secs=$((runtime % 60))
-        echo "Finished at: $end_hr" >> {log}
-        echo "Wall time: $hours"h" $mins"m" $secs"s" (total $runtime seconds)" >> {log}
         """
 rule combine_bracken_outputs:
     input:

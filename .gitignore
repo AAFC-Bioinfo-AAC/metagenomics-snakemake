@@ -10,5 +10,3 @@ resources/bowtie2_index/
 *.err
 localDB/
 
-# Do not ignore the local-wrappers directory, but ignore its contents
-workflow/local-wrappers/*

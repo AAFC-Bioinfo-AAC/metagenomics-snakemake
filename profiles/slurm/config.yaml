@@ -34,7 +34,7 @@ set-resource-scopes:
 ## Per rule resources
 set-resources:
   fastp_pe:
-    cpus: 2
+    cpus: 4
     mem_mb: 4000
     runtime: 40
     slurm_partition: standard
@@ -44,5 +44,54 @@ set-resources:
     cpus: 24
     mem_mb: 48000
     runtime: 30
+    slurm_partition: standard
+    slurm_account: aafc_aac
+
+  extract_unmapped_fastq:
+    cpus: 60
+    mem_mb: 64000
+    runtime: 30
+    slurm_partition: standard
+    slurm_account: aafc_aac
+
+  kraken2:
+    cpus: 2
+    mem_mb: 600000
+    runtime: 60 
+    slurm_partition: large
+    slurm_account: aafc_aac__large
+
+  bracken:
+    cpus: 2
+    mem_mb: 4000
+    runtime: 10
+    slurm_partition: standard
+    slurm_account: aafc_aac
+
+  combine_bracken_outputs:
+    cpus: 1
+    mem_mb: 2000
+    runtime: 20
+    slurm_partition: standard
+    slurm_account: aafc_aac
+   
+  bracken_extract:
+    cpus: 1
+    mem_mb: 2000
+    runtime: 10
+    slurm_partition: standard
+    slurm_account: aafc_aac
+
+  rgi_reload_database:
+    cpus: 1
+    mem_mb: 2000
+    runtime: 30
+    slurm_partition: standard
+    slurm_account: aafc_aac
+
+  rgi_bwt:
+    cpus: 20
+    mem_mb: 64000
+    runtime: 60
     slurm_partition: standard
     slurm_account: aafc_aac

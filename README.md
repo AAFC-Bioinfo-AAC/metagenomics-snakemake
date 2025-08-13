@@ -89,7 +89,7 @@ flowchart TD
 
 ## Preprocessing Module Overview
 
-The pipeline is modularized, with each module located in the `metatranscriptomics-snakemake/workflow/rules` directory. The modules are `preprocessing.smk`, and `amr_short_reads.smk`. **More modules to follow**
+The pipeline is modularized, with each module located in the `metatranscriptomics-snakemake/workflow/rules` directory. The modules are `preprocessing.smk`, `taxonomy.smk` and `amr_short_reads.smk`. **More modules to follow**
 
 ---   
 ### Module  `preprocessing.smk` contains these rules:
@@ -271,9 +271,16 @@ The raw input data must be in the form of paired-end FASTQ files generated from 
 
 - **Bowtie2**  
   Bowtie2 uses an index of reference sequences to align reads. This index must be created before running the pipeline. The index files (with the `.bt2` extension) must be located in the directory you specify in the `config/config.yaml` file. Make sure to update the prefix of these files in the `config.yaml` file.
+  - In `resources/bowtie2_index` there is a `README.md` file that details where the index was copied from.
 
 - **Kraken2**  
-  Kraken2 requires a Kraken2-formatted GTDB database. The GTDB release tested with this pipeline was 220.
+  Kraken2 requires a Kraken2-formatted GTDB database.
+  - Kraken2-formatted GTDB release 226 built with the following scripts provided by Jean-Simon Brouard.
+  - The Bracken database was built specifying a read length of 150 bp and a kmer length of 35 (default for Kraken2) 
+  - As per Gihawi et al, 2023, Kraken2 can assign host reads to bacteria in low microbial biomass samples if the host genomes are not included in the Kraken2 database. Therefore, this version of the GTDB release 226 was formatted for Kraken2 with the inclusion of four host genomes: Bos indicus (GCF_029378745.1), Bos taurus (GCF_002263795.3), Homo sapiens (GCF_000001405.40), and Sus scrofa (GCF_000003025.6).
+
+  > **See:** Gihawi A, Ge Y, Lu J, Puiu D, Xu A, Cooper CS, Brewer DS, Pertea M, Salzberg SL. Major data analysis errors invalidate cancer microbiome findings. mBio. 2023 Oct 31;14(5):e0160723. doi: 10.1128/mbio.01607-23. Epub 2023 Oct 9. 
+
 
 - **RGI BWT/CARD**  RGI BWT requires the CARD (Comprehensive Antibiotic Resistance Database) database. The version tested in this pipeline was 4.0.1. The database can be located on a common drive or in your working directory.  
   Instructions for installing the CARD database are available on [CARD RGI github](https://github.com/arpcard/rgi/blob/master/docs/rgi_bwt.rst).  
