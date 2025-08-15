@@ -120,8 +120,7 @@ The pipeline is modularized, with each module located in the `metatranscriptomic
   - Outputs are marked as **temporary** and automatically cleaned up once no longer needed.
 - **Performance Notes:**
   > **Wall time:**  
-  > - 60 cores (bowtie2: 44, SAMtools view: 4, SAMtools sort: 12): 12m 18s  
-  > - 24 cores (bowtie2: 16, SAMtools view: 4, SAMtools sort: 8): ??
+  > - 24 cores (bowtie2: 16, SAMtools view: 4, SAMtools sort: 8): ~8min
 
 
 🔹 **`rule extract_unmapped_fastq` *Decontamination***
@@ -135,8 +134,7 @@ The pipeline is modularized, with each module located in the `metatranscriptomic
   - ## *Add the parameters to the `config/config.yaml`*
 - **Performance Notes:**
   >  **Wall time:**  
-  > - 60 cores, no splitting: 17m 57s  
-  > - Optimized run with core splitting at a 80:20 ratio between SAMtools and pigz (SAMtools: 48, pigz: 12) : time???
+  > - 24 cores total with core splitting at a 80:20 ratio between SAMtools and pigz: ~15min
 
 ---  
 
@@ -156,8 +154,7 @@ The pipeline is modularized, with each module located in the `metatranscriptomic
 
 - **Performance Notes:**
   >  **Wall time:**  
-  > - Large compute node with 600 GB. With 16 CUPs wall time was 7m 56s
-  > - Large compute node with 600 GB. With 2 CUPs wall time was 19m 13s
+  > - Large compute node with 840 GB. With 2 CUPs: ~1 hr. 
 
 🔹 **`rule bracken` *Abundance Estimation***
   - **Purpose:** Refines Kraken classification to provide abundance estimates at the species, genus and phylum level for each sample.
@@ -173,8 +170,7 @@ The pipeline is modularized, with each module located in the `metatranscriptomic
 
 - **Performance Notes:**
   >  **Wall time:**  
-  > - 10 threads the wall time was 9s.
-  > - 2 threads ??
+  > - 2 threads: ~30 s
 
 🔹 **`rule combine_bracken_outputs` *Merging Abundance Tables***
 - **Inputs:**  
@@ -230,8 +226,7 @@ The pipeline is modularized, with each module located in the `metatranscriptomic
 
 - **Performance Notes:**
   >  **Wall time:**  
-  > - 40 cores wall time: 18m 7s
-  > - 20 cores wall time: ??If time does not increase much further reduce cores.
+  > - 4 cores wall time: ~45 min
 
 ---
 
@@ -493,7 +488,7 @@ export PATH="$PWD/bin:$PATH"
 
 #### Resource usage
 
-- Kraken2: Large compute node with 600 GB. With 16 CUPs wall time was 7m 56s. With 2 CPUs wall time was 19m 13s.
+- Kraken2: Large compute node with 840 GB.
 
 ## OUTPUT
 
