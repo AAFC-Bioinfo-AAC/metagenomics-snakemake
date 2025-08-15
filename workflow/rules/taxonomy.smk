@@ -25,6 +25,9 @@ rule kraken2:
         r"""
         set -euo pipefail
 
+        mkdir -p "$(dirname {log})"
+        mkdir -p "$(dirname {output.report})"
+
         kraken2 --use-names \
             --threads {threads} \
             --db {input.ref} \
@@ -42,9 +45,9 @@ rule bracken:
         ref = f"{TAXONOMY_DB}",
         report = f"{KRAKEN_OUTPUT_DIR}/{{sample}}.report.txt"
     output:
-        species = f"{KRAKEN_OUTPUT_DIR}/species/{{sample}}_bracken.species.report.txt",
-        genus = f"{KRAKEN_OUTPUT_DIR}/genus/{{sample}}_bracken.genus.report.txt",
-        phylum = f"{KRAKEN_OUTPUT_DIR}/phylum/{{sample}}_bracken.phylum.report.txt"
+        species = f"{BRACKEN_OUTPUT_DIR}/species/{{sample}}_bracken.species.report.txt",
+        genus = f"{BRACKEN_OUTPUT_DIR}/genus/{{sample}}_bracken.genus.report.txt",
+        phylum = f"{BRACKEN_OUTPUT_DIR}/phylum/{{sample}}_bracken.phylum.report.txt"
     log:
         f"{LOG_DIR}/bracken/{{sample}}.log"
     conda:
@@ -66,13 +69,13 @@ rule bracken:
         """
 rule combine_bracken_outputs:
     input:
-        species = expand(f"{KRAKEN_OUTPUT_DIR}/species/{{sample}}_bracken.species.report.txt", sample=SAMPLES),
-        genus = expand(f"{KRAKEN_OUTPUT_DIR}/genus/{{sample}}_bracken.genus.report.txt", sample=SAMPLES),
-        phylum = expand(f"{KRAKEN_OUTPUT_DIR}/phylum/{{sample}}_bracken.phylum.report.txt", sample=SAMPLES)
+        species = expand(f"{BRACKEN_OUTPUT_DIR}/species/{{sample}}_bracken.species.report.txt", sample=SAMPLES),
+        genus = expand(f"{BRACKEN_OUTPUT_DIR}/genus/{{sample}}_bracken.genus.report.txt", sample=SAMPLES),
+        phylum = expand(f"{BRACKEN_OUTPUT_DIR}/phylum/{{sample}}_bracken.phylum.report.txt", sample=SAMPLES)
     output:
-        species = f"{KRAKEN_OUTPUT_DIR}/merged_abundance_species.txt",
-        genus = f"{KRAKEN_OUTPUT_DIR}/merged_abundance_genus.txt",
-        phylum = f"{KRAKEN_OUTPUT_DIR}/merged_abundance_phylum.txt"
+        species = f"{BRACKEN_OUTPUT_DIR}/merged_abundance_species.txt",
+        genus = f"{BRACKEN_OUTPUT_DIR}/merged_abundance_genus.txt",
+        phylum = f"{BRACKEN_OUTPUT_DIR}/merged_abundance_phylum.txt"
     log:
         f"{LOG_DIR}/bracken/combine_bracken_outputs.log"
     conda:
@@ -92,16 +95,16 @@ rule combine_bracken_outputs:
         """
 rule bracken_extract:
     input:
-        species_table = f"{KRAKEN_OUTPUT_DIR}/merged_abundance_species.txt",
-        genus_table = f"{KRAKEN_OUTPUT_DIR}/merged_abundance_genus.txt",
-        phylum_table = f"{KRAKEN_OUTPUT_DIR}/merged_abundance_phylum.txt"
+        species_table = f"{BRACKEN_OUTPUT_DIR}/merged_abundance_species.txt",
+        genus_table = f"{BRACKEN_OUTPUT_DIR}/merged_abundance_genus.txt",
+        phylum_table = f"{BRACKEN_OUTPUT_DIR}/merged_abundance_phylum.txt"
     output:
-        species_raw = f"{KRAKEN_OUTPUT_DIR}/Bracken_species_raw_abundance.csv",
-        species_rel = f"{KRAKEN_OUTPUT_DIR}/Bracken_species_relative_abundance.csv", 
-        genus_raw = f"{KRAKEN_OUTPUT_DIR}/Bracken_genus_raw_abundance.csv",
-        genus_rel = f"{KRAKEN_OUTPUT_DIR}/Bracken_genus_relative_abundance.csv",
-        phylum_raw = f"{KRAKEN_OUTPUT_DIR}/Bracken_phylum_raw_abundance.csv",
-        phylum_rel = f"{KRAKEN_OUTPUT_DIR}/Bracken_phylum_relative_abundance.csv"
+        species_raw = f"{BRACKEN_OUTPUT_DIR}/Bracken_species_raw_abundance.csv",
+        species_rel = f"{BRACKEN_OUTPUT_DIR}/Bracken_species_relative_abundance.csv", 
+        genus_raw = f"{BRACKEN_OUTPUT_DIR}/Bracken_genus_raw_abundance.csv",
+        genus_rel = f"{BRACKEN_OUTPUT_DIR}/Bracken_genus_relative_abundance.csv",
+        phylum_raw = f"{BRACKEN_OUTPUT_DIR}/Bracken_phylum_raw_abundance.csv",
+        phylum_rel = f"{BRACKEN_OUTPUT_DIR}/Bracken_phylum_relative_abundance.csv"
     conda:
         "../envs/kraken2.yaml"
     script:

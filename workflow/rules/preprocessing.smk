@@ -74,12 +74,12 @@ rule extract_unmapped_fastq:
     input:
         bam=f"{TRIMMED_DIR}/bam/{{sample}}.bam"
     output:
-        r1=f"{HOST_DEP_DIR}/{{sample}}_trimmed_clean_R1.fastq.gz",
-        r2=f"{HOST_DEP_DIR}/{{sample}}_trimmed_clean_R2.fastq.gz"
+        r1=protected(f"{HOST_DEP_DIR}/{{sample}}_trimmed_clean_R1.fastq.gz"),
+        r2=protected(f"{HOST_DEP_DIR}/{{sample}}_trimmed_clean_R2.fastq.gz")
 
     log:
         f"{LOG_DIR}/bedtools/{{sample}}.log"
-    threads: config["extract_unmapped_fastq"].get("threads", 60)
+    threads: config["extract_unmapped_fastq"].get("threads", 24)
     conda:
         "../envs/bedtools.yaml"
     shell:

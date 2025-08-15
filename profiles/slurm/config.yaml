@@ -48,7 +48,7 @@ set-resources:
     slurm_account: aafc_aac
 
   extract_unmapped_fastq:
-    cpus: 60
+    cpus: 24
     mem_mb: 64000
     runtime: 30
     slurm_partition: standard
@@ -56,8 +56,8 @@ set-resources:
 
   kraken2:
     cpus: 2
-    mem_mb: 600000
-    runtime: 60 
+    mem_mb: 840000
+    runtime: 120 
     slurm_partition: large
     slurm_account: aafc_aac__large
 
@@ -90,8 +90,8 @@ set-resources:
     slurm_account: aafc_aac
 
   rgi_bwt:
-    cpus: 20
-    mem_mb: 64000
-    runtime: 60
+    cpus: 4
+    mem_mb: 80000
+    runtime: 90
     slurm_partition: standard
     slurm_account: aafc_aac

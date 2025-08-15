@@ -9,7 +9,8 @@ samplesheet: "samplesheet.csv"
 log_files: "code/metagenomics-snakemake/workflow/logs"
 reads_dir: "data/raw/fastq"
 reads_host_dep: "workspace/clean_reads"
-taxonomy_short_reads_dir: "workspace/taxonomy_short_reads"
+kraken_short_reads_dir: "workspace/taxonomy_short_reads/kraken2"
+bracken_short_reads_dir: "workspace/taxonomy_short_reads/bracken"
 amr_screening_dir: "workspace/amr_screening"
 # Files relative to TMPDIR
 reads_trimmed: "fastp_trimmed"
@@ -41,10 +42,10 @@ bowtie2_align:
   view_threads: 4
   sort_threads: 8
 extract_unmapped_fastq:
-  threads: 60
+  threads: 24
 ## amr_short_reads.smk
 rgi_bwt:
-  threads: 20
+  threads: 8
 ## taxonomy.smk
 kraken2:
   threads: 2
