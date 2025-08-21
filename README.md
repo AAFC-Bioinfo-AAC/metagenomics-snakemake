@@ -21,12 +21,18 @@ For more info, refer: [Template Repository User Guide](https://github.com/AAFC-B
 
 *Example **Table of Contents** (may optionally be placed above the **About** section):*
 
-- [Metatranscriptomics Snakemake Pipeline](#metatranscriptomics-snakemake-pipeline)
+- [Metagenomics Snakemake](#metagenomics-snakemake)
   - [About](#about)
   - [Table of Contents](#table-of-contents)
   - [Overview](#overview)
     - [Workflow diagram](#workflow-diagram)
     - [Snakemake rules](#snakemake-rules)
+  - [Preprocessing Module Overview](#preprocessing-module-overview)
+    - [Module  `preprocessing.smk` contains these rules:](#module--preprocessingsmk-contains-these-rules)
+    - [Module  `taxonomy.smk` contains these rules:](#module--taxonomysmk-contains-these-rules)
+    - [ALL parameters still need to go into config/config.yaml and wall time needs to be removed](#all-parameters-still-need-to-go-into-configconfigyaml-and-wall-time-needs-to-be-removed)
+    - [Module  `amr_short_reads.smk` contains these rules:](#module--amr_short_readssmk-contains-these-rules)
+    - [ALL parameters still need to go into config/config.yaml and wall time needs to be removed](#all-parameters-still-need-to-go-into-configconfigyaml-and-wall-time-needs-to-be-removed-1)
   - [Data](#data)
   - [Parameters](#parameters)
   - [Usage](#usage)
@@ -35,12 +41,16 @@ For more info, refer: [Template Repository User Guide](https://github.com/AAFC-B
       - [Databases](#databases)
     - [Setup Instructions](#setup-instructions)
       - [1. Installation](#1-installation)
-      - [2. Configuration](#2-configuration)
-        - [2.1. config.yaml](#21-configyaml)
-        - [2.2. Environment file](#22-environment-file)
-        - [2.3. Sample list](#23-sample-list)
-      - [3. Running the pipeline](#3-running-the-pipeline)
-        - [3.1.Conda environments](#31conda-environments)
+      - [2. SLURM Profile](#2-slurm-profile)
+        - [2.1. SLURM Profile Directory Structure](#21-slurm-profile-directory-structure)
+        - [2.2. Profile Configuration](#22-profile-configuration)
+      - [3. Configuration](#3-configuration)
+        - [3.1. config/config.yaml](#31-configconfigyaml)
+        - [3.2. Environment file](#32-environment-file)
+        - [3.3. Sample list](#33-sample-list)
+      - [4. Running the pipeline](#4-running-the-pipeline)
+        - [4.1. Conda environments](#41-conda-environments)
+        - [4.2. SLURM launcher](#42-slurm-launcher)
     - [Notes](#notes)
       - [Warnings](#warnings)
       - [Current issues](#current-issues)
@@ -246,10 +256,20 @@ The raw input data must be in the form of paired-end FASTQ files generated from 
 
 ## Parameters
 
+The `config/config.yaml` file contains the editable pipeline parameters, thread allocation for rules with more than one core, and the realtive file paths for input and output. The prefix of the absolute file path must go in `.env`. Most tools in the pipeline have default parameters. The tools with papmerts differnt from defult or that can be editied in the `config/config.ymal` file are listed below.
+
 | Parameter          | Value                                                                                               |
 | -------------------- | ----------------------------------------------------------------------------------------------------- |
-| *parameter_name_1* | *Description of what the parameter does and the expected value (e.g., integer, string, file path).* |
-| *parameter_name_2* | *Description of what the parameter does and the expected value (e.g., boolean, list).*              |
+| *samplesheet.csv* | *The samplesheet is described here: [Sample list](#33-sample-list)* |
+| *fastp: cut_tail* | *If true, trim low quality bases from the 3′ end until a base meets or exceeds the cut_mean_quality threshold. If false,disabled.*|
+| *fastp: cut_front* | *If true, trim low quality bases from the 5′ end until a base meets or exceeds the cut_mean_quality threshold. If false,disabled.*|
+| *fastp: cut_mean_quality* | *A positive integer specifying the minimum average quality score threshold for sliding window trimming.*|
+| *fastp: cut_window_size* | *A positive interger specifing the sliding window size in bp when using cut_mean_quality.*|
+| *fastp: qualified_quality_phred* | *A positive interger specifing the minimum Phed score that a base needs to be considered qualified*.| 
+| *fastp: detect_adapter_for_pe* | *If true, auto adapter detection. If false,disabled.*| 
+| *fastp: length_required* | *Reads shorter then this positive interger will be discarded.*| 
+| *kraken2: conf_threshold* | *Interval between 0 and 1. Higher values require more of a read’s k-mers to match the same taxon before it is classified, increasing precision but reducing sensitivity.*              |
+| *bracken: readlen* | *The read length of your data in bp.*              |
 
 ---
 
@@ -325,11 +345,12 @@ metatranscriptomics_pipeline/
 └── ...                         
 ```
 ##### 2.2. Profile Configuration
-The SLURM execution settings are configured in profiles/slurm/config.yaml. This file defines resource defaults, cluster submission commands, and job script templates for Snakemake. The pre-rule resources need to be adjusted for the size and number of input samples for each rule.
+The SLURM execution settings are configured in profiles/slurm/config.yaml. This file defines resource defaults, cluster submission commands, and job script templates for Snakemake. This file should be adjusted for each HPC configuration. Remember to adjust `rerun-triggers: [input, params, software-env]` pipeline is being modified. The pre-rule resources need to be adjusted for the size and number of input samples for each rule.
 
 **Example for profiles/slurm/config.yaml:**
 ```bash
 ### How Snakemake assigns resources to rules
+
 cores: 60
 jobs: 10 
 latency-wait: 60 
@@ -354,6 +375,10 @@ default-resources:
 ### Env modules ###
 # use-envmodules: false 
 
+# Prevent rerunning jobs just for Snakefile edits
+## flags available [input, mtime, params, software-env, code, resources, none]
+rerun-triggers: [input, params, software-env]
+
 ### Conda ###
 use-conda: true
 conda-frontend: mamba   
@@ -370,6 +395,7 @@ set-resources:
     runtime: 40
     slurm_partition: standard
     slurm_account: aafc_aac
+    slurm_cluster: gpsc8
 
   bowtie2_align:
     cpus: 24
@@ -377,6 +403,7 @@ set-resources:
     runtime: 30
     slurm_partition: standard
     slurm_account: aafc_aac
+    slurm_cluster: gpsc8
 ```
 
 #### 3. Configuration
@@ -445,6 +472,7 @@ snakemake --use-conda \
 ```
 ##### 4.2. SLURM launcher
 This is the script you use to submit the Snakemake pipeline to SLURM.
+- **Before submitting job to SLURM run `export SLURM_CONF="/etc/slurm-llnl/gpsc8.science.gc.ca.conf"`**
 - Defines resources for the job scheduler
 - Activates the Snakemake environment
 - Submits and manages jobs using the Snakemake `--profile` configuration `(profiles/slurm/)`.

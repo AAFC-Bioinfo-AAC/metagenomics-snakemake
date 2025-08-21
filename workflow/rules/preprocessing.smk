@@ -56,19 +56,26 @@ rule bowtie2_align:
     log:
         f"{LOG_DIR}/bowtie2/{{sample}}.log"
     params:
-        bt2_threads = config["bowtie2_align"].get("bt2_threads", 12),
-        view_threads = config["bowtie2_align"].get("view_threads", 4),
-        sort_threads = config["bowtie2_align"].get("sort_threads", 8),
         extra= lambda wc: f"-R '@RG\\tID:{wc.sample}\\tSM:{wc.sample}'"
-    threads: config["bowtie2_align"].get("threads", 24)
+    threads: config.get("bowtie2_align", {}).get("threads", 12)
     conda:
         "../envs/bowtie2.yaml"
     shell:
         r"""
+        # Split threads safely
+        bt2_threads=$(( ({threads}+1)/2 ))
+        sort_threads=$(( ({threads}+2)/3 ))
+        view_threads=$(( {threads} - bt2_threads - sort_threads ))
+        # Ensure no thread count is 0
+        [ $bt2_threads -lt 1 ] && bt2_threads=1
+        [ $sort_threads -lt 1 ] && sort_threads=1
+        [ $view_threads -lt 1 ] && view_threads=1
+
         set -euo pipefail
-        bowtie2 -x {BOWTIE_INDEX} -1 {input.r1} -2 {input.r2} --threads {params.bt2_threads} {params.extra} 2>> {log} \
-        | samtools view -u -@ {params.view_threads} 2>> {log} \
-        | samtools sort -@ {params.sort_threads} -o {output.bam} 2>> {log}
+
+        bowtie2 -x {BOWTIE_INDEX} -1 {input.r1} -2 {input.r2} --threads $bt2_threads {params.extra} 2>> {log} \
+        | samtools view -u -@ $view_threads 2>> {log} \
+        | samtools sort -@ $sort_threads -o {output.bam} 2>> {log}
         """  
 rule extract_unmapped_fastq:
     input:
@@ -84,23 +91,22 @@ rule extract_unmapped_fastq:
         "../envs/bedtools.yaml"
     shell:
         r"""
-        # Split threads between samtools and pigz; bedtools is single-threaded
-        SAMTOOLS_THREADS=$(( {threads} * 4 / 5 ))
-        PIGZ_THREADS=$(( {threads} / 5 ))
-        [ $SAMTOOLS_THREADS -lt 1 ] && SAMTOOLS_THREADS=1
-        [ $PIGZ_THREADS -lt 1 ] && PIGZ_THREADS=1
-
-        echo "PIGZ_THREADS: $PIGZ_THREADS" >> {log}
+        # Split threads safely
+        samtools_threads=$(( ({threads}*4 + 4)/5 ))   # ~80% for samtools
+        pigz_threads=$(( {threads} - samtools_threads )) # rest for pigz
+        # Ensure no thread count is 0
+        [ $samtools_threads -lt 1 ] && samtools_threads=1
+        [ $pigz_threads -lt 1 ] && pigz_threads=1
         
         TMPDIR="${{TMPDIR:-/tmp}}"
         JOB_ID="${{SLURM_JOB_ID:-manual}}"
         TMPJOB=$(mktemp -d "${{TMPDIR}}/bam2fq_${{JOB_ID}}_XXXXXX" 2>> {log} || echo "/tmp/bam2fq_${{JOB_ID}}_manualtmp")
 
-        samtools view -u -f 12 -F 256 --threads $SAMTOOLS_THREADS {input.bam} 2>> {log} \
-        | samtools sort -n --threads $SAMTOOLS_THREADS -T $TMPJOB/{wildcards.sample}_sort_tmp -O BAM - 2>> {log} \
+        samtools view -u -f 12 -F 256 --threads $samtools_threads {input.bam} 2>> {log} \
+        | samtools sort -n --threads $samtools_threads -T $TMPJOB/{wildcards.sample}_sort_tmp -O BAM - 2>> {log} \
         | bedtools bamtofastq -i - 2>> {log} \
-            -fq >(pigz -p $PIGZ_THREADS --fast > {output.r1}) \
-            -fq2 >(pigz -p $PIGZ_THREADS --fast > {output.r2})
+            -fq >(pigz -p $pigz_threads --fast > {output.r1}) \
+            -fq2 >(pigz -p $pigz_threads --fast > {output.r2})
 
         echo "Temporary directory to be removed: $TMPJOB" >> {log}
         rm -rf "$TMPJOB"

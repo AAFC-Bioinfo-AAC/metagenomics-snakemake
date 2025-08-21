@@ -7,6 +7,9 @@ retries: 2
 max-jobs-per-second: 2 
 executor: slurm
 
+# Prevent rerunning jobs just for Snakefile edits
+## flags available [input, mtime, params, software-env, code, resources, none]
+rerun-triggers: [input, params, software-env]
 
 ### Env Vars ###
 envvars:
@@ -39,20 +42,23 @@ set-resources:
     runtime: 40
     slurm_partition: standard
     slurm_account: aafc_aac
+    slurm_cluster: gpsc8
 
   bowtie2_align:
-    cpus: 24
-    mem_mb: 48000
-    runtime: 30
+    cpus: 16
+    mem_mb: 24000
+    runtime: 90
     slurm_partition: standard
     slurm_account: aafc_aac
+    slurm_cluster: gpsc8
 
   extract_unmapped_fastq:
-    cpus: 24
-    mem_mb: 64000
-    runtime: 30
+    cpus: 8
+    mem_mb: 18000
+    runtime: 60
     slurm_partition: standard
     slurm_account: aafc_aac
+    slurm_cluster: gpsc8
 
   kraken2:
     cpus: 2
@@ -60,6 +66,7 @@ set-resources:
     runtime: 120 
     slurm_partition: large
     slurm_account: aafc_aac__large
+    slurm_cluster: gpsc8
 
   bracken:
     cpus: 2
@@ -67,6 +74,7 @@ set-resources:
     runtime: 10
     slurm_partition: standard
     slurm_account: aafc_aac
+    slurm_cluster: gpsc8
 
   combine_bracken_outputs:
     cpus: 1
@@ -74,6 +82,7 @@ set-resources:
     runtime: 20
     slurm_partition: standard
     slurm_account: aafc_aac
+    slurm_cluster: gpsc8
    
   bracken_extract:
     cpus: 1
@@ -81,6 +90,7 @@ set-resources:
     runtime: 10
     slurm_partition: standard
     slurm_account: aafc_aac
+    slurm_cluster: gpsc8
 
   rgi_reload_database:
     cpus: 1
@@ -88,10 +98,12 @@ set-resources:
     runtime: 30
     slurm_partition: standard
     slurm_account: aafc_aac
+    slurm_cluster: gpsc8
 
   rgi_bwt:
     cpus: 4
-    mem_mb: 80000
+    mem_mb: 120000
     runtime: 90
-    slurm_partition: standard
-    slurm_account: aafc_aac
+    slurm_partition: large
+    slurm_account: aafc_aac__large
+    slurm_cluster: gpsc8
