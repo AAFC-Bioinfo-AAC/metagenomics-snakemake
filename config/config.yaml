@@ -37,12 +37,9 @@ fastp:
   detect_adapter_for_pe: true
   length_required: 100
 bowtie2_align:
-  threads: 24
-  bt2_threads: 12
-  view_threads: 4
-  sort_threads: 8
+  threads: 16
 extract_unmapped_fastq:
-  threads: 24
+  threads: 8
 ## amr_short_reads.smk
 rgi_bwt:
   threads: 8

@@ -67,17 +67,17 @@ rule bracken:
 
         bracken -r {params.readlen} -t {threads} -d {input.ref} -i {input.report} -l P -o {output.phylum} &>> {log}
         """
-rule: clean_host_bracken
+rule clean_host_bracken:
     input:
-        species = expand(f"{BRACKEN_OUTPUT_DIR}/species/{{sample}}_bracken.species.report.txt", sample=SAMPLES),
-        genus = expand(f"{BRACKEN_OUTPUT_DIR}/genus/{{sample}}_bracken.genus.report.txt", sample=SAMPLES),
-        phylum = expand(f"{BRACKEN_OUTPUT_DIR}/phylum/{{sample}}_bracken.phylum.report.txt", sample=SAMPLES)
+        species = f"{BRACKEN_OUTPUT_DIR}/species/{{sample}}_bracken.species.report.txt",
+        genus = f"{BRACKEN_OUTPUT_DIR}/genus/{{sample}}_bracken.genus.report.txt",
+        phylum = f"{BRACKEN_OUTPUT_DIR}/phylum/{{sample}}_bracken.phylum.report.txt"
     output:
-        species = expand(f"{BRACKEN_OUTPUT_DIR}/species/{{sample}}_bracken.species.cleaned.txt", sample=SAMPLES),
-        genus = expand(f"{BRACKEN_OUTPUT_DIR}/genus/{{sample}}_bracken.genus.cleaned.txt", sample=SAMPLES),
-        phylum = expand(f"{BRACKEN_OUTPUT_DIR}/phylum/{{sample}}_bracken.phylum.cleaned.txt", sample=SAMPLES)
+       species = f"{BRACKEN_OUTPUT_DIR}/species/{{sample}}_bracken.species.report.cleaned.txt",
+        genus = f"{BRACKEN_OUTPUT_DIR}/genus/{{sample}}_bracken.genus.report.cleaned.txt",
+        phylum = f"{BRACKEN_OUTPUT_DIR}/phylum/{{sample}}_bracken.phylum.report.cleaned.txt"
     log:
-        f"{LOG_DIR}/bracken/clean_host_bracken.log"
+        f"{LOG_DIR}/bracken/clean_host_bracken_{{sample}}.log"
     conda:
         "../envs/kraken2.yaml"
     script:

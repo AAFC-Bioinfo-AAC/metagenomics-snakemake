@@ -30,9 +30,8 @@ For more info, refer: [Template Repository User Guide](https://github.com/AAFC-B
   - [Preprocessing Module Overview](#preprocessing-module-overview)
     - [Module  `preprocessing.smk` contains these rules:](#module--preprocessingsmk-contains-these-rules)
     - [Module  `taxonomy.smk` contains these rules:](#module--taxonomysmk-contains-these-rules)
-    - [ALL parameters still need to go into config/config.yaml and wall time needs to be removed](#all-parameters-still-need-to-go-into-configconfigyaml-and-wall-time-needs-to-be-removed)
     - [Module  `amr_short_reads.smk` contains these rules:](#module--amr_short_readssmk-contains-these-rules)
-    - [ALL parameters still need to go into config/config.yaml and wall time needs to be removed](#all-parameters-still-need-to-go-into-configconfigyaml-and-wall-time-needs-to-be-removed-1)
+    - [ALL parameters still need to go into config/config.yaml and wall time needs to be removed](#all-parameters-still-need-to-go-into-configconfigyaml-and-wall-time-needs-to-be-removed)
   - [Data](#data)
   - [Parameters](#parameters)
   - [Usage](#usage)
@@ -149,60 +148,63 @@ The pipeline is modularized, with each module located in the `metatranscriptomic
 ---  
 
 ### Module  `taxonomy.smk` contains these rules:
-### ALL parameters still need to go into config/config.yaml and wall time needs to be removed
-
-🔹 **`rule kraken2` *Assign Taxonomy***
-- **Purpose:** Assign taxonomy to the clean reads using a Kraken2-formatted GTDB
-- **Inputs:**
-  - Clean read pairs: `*_trimmed_clean_R1.fastq.gz`/`*_trimmed_clean_R2.fastq.gz` 
-- **Outputs:**
-  -Kraken and report for each sample: `*.kraken`/`*.report`
-- **Notes:**
-  - Uses confidence threshold of 0.5 and **default parameters** from `Kraken2`
-  - New Kraken2 database has not been tested yet
-  - Must use **Large compute node**
-
-- **Performance Notes:**
-  >  **Wall time:**  
-  > - Large compute node with 840 GB. With 2 CUPs: ~1 hr. 
-
 🔹 **`rule bracken` *Abundance Estimation***
   - **Purpose:** Refines Kraken classification to provide abundance estimates at the species, genus and phylum level for each sample.
-  - **Inputs:** Report file from `kraken`
+  - **Inputs:** Kraken report: `sample.report.txt`
   - **Outputs:**  
   - Bracken reports at:
-    - Species level
-    - Genus level
-    - Phylum level
+    - Species level: `sample_bracken.species.report.txt`
+    - Genus level: `sample_bracken.genus.report.txt`
+    - Phylum level: `sample_bracken.phylum.report.txt`
  - **Notes:**
   - Outputs are used as **intermediate files** for downstream rule: `combine_bracken_outputs`
-  - his rule is also making `.report_bracken_species.txt` at each level in the `06_kraken` directory. At some point see if we can either place these into a directory called `reports` or have them cleaned up in the shell block.
+  - his rule is also making `sample.report_bracken_species.txt` at each level in the `kraken2` directory. At some point see if we can either place these into a directory called `reports` or have them cleaned up in the shell block.
 
 - **Performance Notes:**
   >  **Wall time:**  
-  > - 2 threads: ~30 s
+  > - 10 threads the wall time was 9s.
+  > - 2 threads ??
+
+🔹 **`rule clean_host_bracken` *Remove host from counts***
+- **Purpose:** This step is specific to Kraken GTDB formatted with host reference DNA added. This step will remove taxa classified as host, so that the raw abundance and relative abundance is that of the microbial community.
+- **Inputs:**  
+  - Bracken reports at:
+    - Species level: `sample_bracken.species.report.txt`
+    - Genus level: `sample_bracken.genus.report.txt`
+    - Phylum level: `sample_bracken.phylum.report.txt`
+- **Outputs:**  
+  - Bracken host removed reports at:
+    - Species level: `sample_bracken.species.report.cleaned.txt`
+    - Genus level: `sample_bracken.genus.report.cleaned.txt`
+    - Phylum level: `sample_bracken.phylum.report.cleaned.txt`
+ - **Notes:**
+  - Kraken GTDB inclusion of four host genomes: Bos indicus (GCF_029378745.1), Bos taurus (GCF_002263795.3), Homo sapiens (GCF_000001405.40), and Sus scrofa (GCF_000003025.6).
+  - If other host are added or removed the `scripts/clean_bracken_batch.py` will need to be modified for the host included. 
 
 🔹 **`rule combine_bracken_outputs` *Merging Abundance Tables***
 - **Inputs:**  
-  - Bracken reports at species, genus, and phylum levels from `rule bracken`
+  - Bracken host removed reports at:
+    - Species level: `sample_bracken.species.report.cleaned.txt`
+    - Genus level: `sample_bracken.genus.report.cleaned.txt`
+    - Phylum level: `sample_bracken.phylum.report.cleaned.txt`
 - **Outputs:**  
   - Combined abundance tables for:
-    - Species level
-    - Genus level
-    - Phylum level
+    - Species level: `merged_abundance_species.txt`
+    - Genus level: `merged_abundance_genus.txt`
+    - Phylum level: `merged_abundance_pylum.txt`
 
 🔹 **`rule bracken_extract` *Relative Abundance Tables***
 - **Purpose:** generate tables for the raw and relative abundance for each taxonomic level for all samples
 - **Inputs:**
   - Combined abundance tables for:
-    - Species level
-    - Genus level
-    - Phylum level
+    - Species level: `merged_abundance_species.txt`
+    - Genus level: `merged_abundance_genus.txt`
+    - Phylum level: `merged_abundance_pylum.txt`
 - **Outputs:**
   - Combined relative and raw abundance tables for
-    - Species level
-    - Genus level
-    - Phylum level
+    - Species level: `Bracken_species_raw_abundance.csv` and `Bracken_species_relative_abundance.csv`
+    - Genus level: `Bracken_genus_raw_abundance.csv` and `Bracken_genus_relative_abundance.csv`
+    - Phylum level: `Bracken_phylum_raw_abundance.csv` and `Bracken_genus_relative_abundance.csv`
 ---
 ### Module  `amr_short_reads.smk` contains these rules:
 ### ALL parameters still need to go into config/config.yaml and wall time needs to be removed
