@@ -10,7 +10,7 @@
 
 source /gpfs/fs7/aafc/common/miniforge/miniforge3/etc/profile.d/conda.sh
 
-conda activate snakemake-9.6.0
+conda activate snakemake-9.9.0
 export PATH="$PWD/bin:$PATH"
 
   snakemake \
