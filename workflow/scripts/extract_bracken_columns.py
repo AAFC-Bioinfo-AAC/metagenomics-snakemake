@@ -3,6 +3,10 @@
 import pandas as pd
 import re
 
+#!/usr/bin/env python3
+import pandas as pd
+import re
+
 input_tables = {
     "species": snakemake.input.species_table,
     "genus": snakemake.input.genus_table,
@@ -22,23 +26,35 @@ output_rel = {
 for level in ["species", "genus", "phylum"]:
     df = pd.read_csv(input_tables[level], sep='\t')
 
-    raw_suffix = f"_bracken.{level}.report.txt_num"
-    rel_suffix = f"_bracken.{level}.report.txt_frac"
+    # Accept both variants with/without '.cleaned' in the filename
+    raw_suffixes = [
+        f"_bracken.{level}.report.cleaned.txt_num",
+        f"_bracken.{level}.report.txt_num"
+    ]
+    rel_suffixes = [
+        f"_bracken.{level}.report.cleaned.txt_frac",
+        f"_bracken.{level}.report.txt_frac"
+    ]
 
-    # Raw columns
-    num_columns = list(df.columns[:3]) + [c for c in df.columns if c.endswith(raw_suffix)]
+    # Find columns that end with any suffix (raw)
+    num_columns = list(df.columns[:3]) + [
+        c for c in df.columns if any(c.endswith(suf) for suf in raw_suffixes)
+    ]
+    # Remove suffix (with or without .cleaned) for output columns
     abundance_num = df[num_columns]
     abundance_num.columns = [
-        re.sub(re.escape(raw_suffix) + '$', '', c)
+        re.sub(f"(_bracken\.{level}\.report(\.cleaned)?\.txt_num)$", "", c)
         for c in abundance_num.columns
     ]
     abundance_num.to_csv(output_raw[level], index=False, quoting=0)
 
-    # Relative columns
-    frac_columns = list(df.columns[:3]) + [c for c in df.columns if c.endswith(rel_suffix)]
+    # Find columns ending with frac-suffix
+    frac_columns = list(df.columns[:3]) + [
+        c for c in df.columns if any(c.endswith(suf) for suf in rel_suffixes)
+    ]
     abundance_frac = df[frac_columns]
     abundance_frac.columns = [
-        re.sub(re.escape(rel_suffix) + '$', '', c)
+        re.sub(f"(_bracken\.{level}\.report(\.cleaned)?\.txt_frac)$", "", c)
         for c in abundance_frac.columns
     ]
     abundance_frac.to_csv(output_rel[level], index=False, quoting=0)
