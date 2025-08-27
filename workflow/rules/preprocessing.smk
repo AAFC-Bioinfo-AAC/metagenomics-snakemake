@@ -2,7 +2,7 @@
     Filename: preprocessing.smk
     Author: Katherine James-Gzyl
     Date created: 2025/07/24
-    Snakemake version: 9.6.0
+    Snakemake version: 9.9.0
 '''
 rule fastp_pe:
     input:
