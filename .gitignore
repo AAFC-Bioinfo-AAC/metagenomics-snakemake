@@ -9,4 +9,7 @@ resources/bowtie2_index/
 *.out
 *.err
 localDB/
-
+snakemake_slurm_launcher.sh
+snakemake_slurm_report.sh
+*.html
+*reportseff.txt
