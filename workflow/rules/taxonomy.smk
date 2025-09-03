@@ -5,7 +5,41 @@
     Snakemake version: 9.9.0
     Python version: 3.9
 '''
-##ADD KRAKEN RULE BACK
+rule kraken2:
+    wildcard_constraints:
+        sample = '[^/]+'
+    input:
+        ref = f"{TAXONOMY_DB}",
+        R1 = f"{HOST_DEP_DIR}/{{sample}}_trimmed_clean_R1.fastq.gz",
+        R2 = f"{HOST_DEP_DIR}/{{sample}}_trimmed_clean_R2.fastq.gz"
+    output:
+        report = f"{KRAKEN_OUTPUT_DIR}/{{sample}}.report.txt",
+        kraken = f"{KRAKEN_OUTPUT_DIR}/{{sample}}.kraken" 
+    log:
+        f"{LOG_DIR}/kraken2/{{sample}}.log"
+    conda:
+        "../envs/kraken2.yaml"
+    threads: config["kraken2"].get("threads", 2)
+    params:
+        conf_threshold = config['kraken2'].get("conf_threshold", "0.5")
+    shell:
+        r"""
+        set -euo pipefail
+
+        mkdir -p "$(dirname {log})"
+        mkdir -p "$(dirname {output.report})"
+
+        kraken2 --use-names \
+            --threads {threads} \
+            --db {input.ref} \
+            --confidence {params.conf_threshold} \
+            --report-zero-counts \
+            --paired {input.R1} {input.R2} \
+            --report {output.report} \
+            --output {output.kraken} \
+            &>> {log}
+        """
+
 rule bracken:
     wildcard_constraints:
         sample = '[^/]+'

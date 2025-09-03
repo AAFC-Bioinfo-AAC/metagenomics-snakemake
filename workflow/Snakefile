@@ -111,20 +111,19 @@ with open(SAMPLESHEET_PATH, newline='') as csvfile:
 SAMPLE_NAMES = list(SAMPLES.keys())
 
 ## Snakemake modules to include ##
-#include: "rules/preprocessing.smk"
+include: "rules/preprocessing.smk"
 include: "rules/taxonomy.smk"
-#include: "rules/amr_short_reads.smk"
+include: "rules/amr_short_reads.smk"
 
 ## Rule outputs files ##
 rule all:
     input:
         #Reads depleted of host and PhiX
-        #expand(f"{HOST_DEP_DIR}/{{sample}}_trimmed_clean_R1.fastq.gz", sample=SAMPLES),
-        #expand(f"{HOST_DEP_DIR}/{{sample}}_trimmed_clean_R2.fastq.gz", sample=SAMPLES),
+        expand(f"{HOST_DEP_DIR}/{{sample}}_trimmed_clean_R1.fastq.gz", sample=SAMPLES),
+        expand(f"{HOST_DEP_DIR}/{{sample}}_trimmed_clean_R2.fastq.gz", sample=SAMPLES),
         #Taxonomy with Kraken
-        #expand(f"{KRAKEN_OUTPUT_DIR}/{{sample}}.report.txt", sample=SAMPLES),
-        #expand(f"{KRAKEN_OUTPUT_DIR}/{{sample}}.kraken", sample=SAMPLES),
-        f"{KRAKEN_OUTPUT_DIR}/kraken_report_summary.csv",
+        expand(f"{KRAKEN_OUTPUT_DIR}/{{sample}}.report.txt", sample=SAMPLES),
+        expand(f"{KRAKEN_OUTPUT_DIR}/{{sample}}.kraken", sample=SAMPLES),
         #Taxonomy with Bracken
         expand(f"{BRACKEN_OUTPUT_DIR}/species/{{sample}}_bracken.species.report.txt", sample=SAMPLES),
         expand(f"{BRACKEN_OUTPUT_DIR}/genus/{{sample}}_bracken.genus.report.txt", sample=SAMPLES),
