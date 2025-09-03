@@ -77,7 +77,58 @@ rule: kegg_diamond
         --outfmt 6 qseqid sseqid slen pident length mismatch gapopen qstart qend sstart send evalue bitscore \
         --threads "$diamond_threads"
         """
-rule ko_abundance:
+rule count_reads:
+    input:
+        merged = f"{MERGED_R1_R2}/{{sample}}_merged.fastq.gz"
+    output:
+        read_count = f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_read_count.txt"
+    shell:
+        r"""
+        set -euo pipefail
+
+        mkdir -p "$(dirname {output.read_count})"
+
+        "zcat {input.merged} | wc -l | awk '{{print int($1/4)}}' > {output.read_count}"
+        """
+
+rule gene_ko_abundance:
+    input:
+        diamond = f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_diamond_output.m8",
+        read_count = f"{KEGG_OUTPUT_DIR}/read_counts/{{sample}}_read_count.txt",
+        ko_genes_list = KEGG_DIR #/gpfs/fs7/aafc/common/reference/kegg/genes/ko/ko_genes.list
+    output:
+       abundance = f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_gene_ko_abundance.tsv", 
+    log:
+        f"{LOG_DIR}/kegg/{{sample}}_gene_ko_abundance.log"
+    conda:
+        "../envs/python3.yaml"
+    script:
+        "../scripts/gene_ko_abundance.py"
+
+rule make_ko_lists:
+    input:
+        abundance = f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_gene_ko_abundance.tsv"
+    output:
+        ko_list_raw = f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_ko_list_raw.txt",
+        ko_list_fixed = f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_ko_list_fixed.txt"
+    log:
+        f"{LOG_DIR}/kegg/{{sample}}_make_ko_lists.log"
+    conda:
+        "../envs/python3.yaml"
+    script:
+        "../scripts/make_ko_lists.py"
+
+rule minpath:
+    input:
+        ko_list_fixed = f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_ko_list_fixed.txt"
+    output:
+        minpath = f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_minpath_output.txt"
+    log:
+        f"{LOG_DIR}/kegg/{{sample}}_minpath.log"
+    conda:
+        "../envs/minpath.yaml"
+    script:
+        "../scripts/minpath.py"
 
 rule: kegg_minpath
     input:
