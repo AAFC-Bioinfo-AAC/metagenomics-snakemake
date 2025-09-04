@@ -3,7 +3,7 @@
     Author: Devin Holman and Katherine James-Gzyl
     Date created: 2025/09/03
     Snakemake version: 9.9.0
-    python version: 3.8 #double check
+    python version: 3.10
 
     Script processes DIAMOND output for each sample to generate a KO-annotated abundance table
       1. Map genes to KEGG Orthology IDS
@@ -22,7 +22,7 @@ if hasattr(snakemake, "log") and snakemake.log:
 
 # Input/output from Snakemake
 diamond_output = snakemake.input["diamond"]
-ko_genes_list = snakemake.input["ko_genes"]
+ko_genes_list = snakemake.input["ko_genes_list"]
 output_file = snakemake.output["abundance"]
 with open(snakemake.input["read_count"]) as f:
     read_count = int(f.read().strip())

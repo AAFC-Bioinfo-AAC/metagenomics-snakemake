@@ -1,0 +1,8 @@
+name: diamond
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - diamond=2.1.13
+  - pigz=2.6

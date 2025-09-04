@@ -3,7 +3,7 @@
     Author: Katherine James-Gzyl
     Date created: 2025/09/03
     Snakemake version: 9.9.0
-    python version: 3.8 #double check
+    python version: 3.10
 
     Script generates KO lists from the abundance table
       1. Extract KO IDs from the abundance table
@@ -18,7 +18,7 @@ from pathlib import Path
 if hasattr(snakemake, "log") and snakemake.log:
     sys.stdout = open(snakemake.log[0], "w")
     sys.stderr = sys.stdout
-    
+
 # Input/output from Snakemake
 abundance_file = snakemake.input["abundance"]
 ko_list_raw = snakemake.output["ko_list_raw"]

@@ -115,3 +115,51 @@ set-resources:
     slurm_partition: large
     slurm_account: aafc_aac__large
     slurm_cluster: gpsc8
+
+  merge_read_pairs:
+    cpus: 1
+    mem_mb: 500
+    runtime: 30
+    slurm_partition: standard
+    slurm_account: aafc_aac
+    slurm_cluster: gpsc8
+
+  kegg_diamond:
+    cpus: 16
+    mem_mb: 64000
+    runtime: 240
+    slurm_partition: standard
+    slurm_account: aafc_aac
+    slurm_cluster: gpsc8
+
+  count_reads:
+    cpus: 1
+    mem_mb: 500
+    runtime: 30
+    slurm_partition: standard
+    slurm_account: aafc_aac
+    slurm_cluster: gpsc8
+
+  gene_ko_abundance:
+    cpus: 1
+    mem_mb: 8000
+    runtime: 60
+    slurm_partition: standard
+    slurm_account: aafc_aac
+    slurm_cluster: gpsc8
+
+  minpath:
+    cpus: 1
+    mem_mb: 4000
+    runtime: 30
+    slurm_partition: standard
+    slurm_account: aafc_aac
+    slurm_cluster: gpsc8
+
+  aggregate_minpath_pathways:
+    cpus: 1
+    mem_mb: 4000
+    runtime: 30
+    slurm_partition: standard
+    slurm_account: aafc_aac
+    slurm_cluster: gpsc8
