@@ -28,10 +28,9 @@ For more info, refer: [Template Repository User Guide](https://github.com/AAFC-B
     - [Workflow diagram](#workflow-diagram)
     - [Snakemake rules](#snakemake-rules)
   - [Preprocessing Module Overview](#preprocessing-module-overview)
-    - [Module  `preprocessing.smk` contains these rules:](#module--preprocessingsmk-contains-these-rules)
-    - [Module  `taxonomy.smk` contains these rules:](#module--taxonomysmk-contains-these-rules)
-    - [Module  `amr_short_reads.smk` contains these rules:](#module--amr_short_readssmk-contains-these-rules)
-    - [ALL parameters still need to go into config/config.yaml and wall time needs to be removed](#all-parameters-still-need-to-go-into-configconfigyaml-and-wall-time-needs-to-be-removed)
+    - [Module `preprocessing.smk`](#module-preprocessingsmk)
+    - [Module  `taxonomy.smk`](#module--taxonomysmk)
+    - [Module  `amr_short_reads.smk`](#module--amr_short_readssmk)
   - [Data](#data)
   - [Parameters](#parameters)
   - [Usage](#usage)
@@ -100,115 +99,141 @@ flowchart TD
 
 The pipeline is modularized, with each module located in the `metatranscriptomics-snakemake/workflow/rules` directory. The modules are `preprocessing.smk`, `taxonomy.smk` and `amr_short_reads.smk`. **More modules to follow**
 
----   
-### Module  `preprocessing.smk` contains these rules:
-🔹 **`rule fastp_pe` *Quality Control & Trimming***
+---
+
+### Module `preprocessing.smk`
+
+**`rule fastp_pe` *Quality Control & Trimming***
 
 - **Purpose:** Performs adapter trimming, quality trimming, and filtering of paired-end reads.
 - **Inputs:** `samplesheet.csv` defines sample IDs and corresponding read pairs.
 - **Outputs:**
-  - Trimmed paired reads: `*_r1.fastq.gz`, `*_r2.fastq.gz`
-  - Unpaired reads: `*_u1.fastq.gz`, `*_u2.fastq.gz`
-  - QC reports (HTML and JSON)
-
+  - Trimmed paired reads: `sample_r1.fastq.gz`, `sample_r2.fastq.gz`
+  
 - **Notes:**
   - Parameters are defined in **`config/config.ymal`** for `fastp`.
-  - Outputs are marked as **temporary** and automatically cleaned up once no longer needed.
+  - These files are marked as temporary in the rule: `sample_u1.fastq.gz`, `sample_r2.fastq.gz`,`sample.fastp.html`, and `sample.fastp.json`. If these are required the temporary() flag on the output files in the rule can be removed.
 
+**`rule bowtie2_align` *Alignment to Host/Phix***
 
-🔹 **`rule bowtie2_align` *Alignment to Host/Phix***
 - **Purpose:** Aligns trimmed reads to a user created reference (Host/PhiX) that has been indexed by Bowtie2 index.
-- **Inputs:** 
+- **Inputs:**
   - Trimmed paired reads: `*_r1.fastq.gz`, `*_r2.fastq.gz`
   - Bowtie2 index files with the suffix `.bt2`
 - **Outputs:**
-  - Reference-aligned `BAM` file
+  - Sorted BAM file: `sample.bam`
 
 - **Notes:**
   - Uses **default parameters** from `Bowtie2`.
-  - Outputs are marked as **temporary** and automatically cleaned up once no longer needed.
-- **Performance Notes:**
-  > **Wall time:**  
-  > - 24 cores (bowtie2: 16, SAMtools view: 4, SAMtools sort: 8): ~8min
+  - This file is marked as temporary in the rule: `sample.bam`. If it is required the temporary() flag on the output file in the rule can be removed.
 
+**`rule extract_unmapped_fastq` *Decontamination***
 
-🔹 **`rule extract_unmapped_fastq` *Decontamination***
 - **Purpose:** extracts the reads that did not align into paired-end FASTQ files depleted of host and PhiX reads
 - **Inputs:**
-  - Sorted BAM file
+  - Sorted BAM file: `sample.bam`
 - **Outputs:**
-  - Clean read pairs: `*_trimmed_clean_R1.fastq.gz`/`*_trimmed_clean_R2.fastq.gz` 
+  - Clean read pairs: `sample_trimmed_clean_R1.fastq.gz`/`sample_trimmed_clean_R2.fastq.gz`
+  
+---
+
+### Module  `taxonomy.smk`
+
+**`rule kraken2` *Assign Taxonomy***
+
+- **Purpose:** Assign taxonomy to the clean reads using a Kraken2-formatted GTDB
+- **Inputs:**
+  - Clean read pairs: `sample_trimmed_clean_R1.fastq.gz`/`sample_trimmed_clean_R2.fastq.gz`
+- **Outputs:**
+  - Kraken and report for each sample: `sample.kraken` and `sample.report.txt`
 - **Notes:**
-  - Uses **default parameters** from `Bowtie2`.
-  - ## *Add the parameters to the `config/config.yaml`*
-- **Performance Notes:**
-  >  **Wall time:**  
-  > - 24 cores total with core splitting at a 80:20 ratio between SAMtools and pigz: ~15min
+  - Must use **Large compute node** with at least 600 GB. The custom database used here needed 840 GB.
 
----  
+**`rule bracken` *Abundance Estimation***
 
-### Module  `taxonomy.smk` contains these rules:
-🔹 **`rule bracken` *Abundance Estimation***
-  - **Purpose:** Refines Kraken classification to provide abundance estimates at the species, genus and phylum level for each sample.
-  - **Inputs:** Kraken report: `sample.report.txt`
-  - **Outputs:**  
-  - Bracken reports at:
-    - Species level: `sample_bracken.species.report.txt`
-    - Genus level: `sample_bracken.genus.report.txt`
-    - Phylum level: `sample_bracken.phylum.report.txt`
- - **Notes:**
-  - Outputs are used as **intermediate files** for downstream rule: `combine_bracken_outputs`
-  - his rule is also making `sample.report_bracken_species.txt` at each level in the `kraken2` directory. At some point see if we can either place these into a directory called `reports` or have them cleaned up in the shell block.
-
-- **Performance Notes:**
-  >  **Wall time:**  
-  > - 10 threads the wall time was 9s.
-  > - 2 threads ??
-
-🔹 **`rule clean_host_bracken` *Remove host from counts***
-- **Purpose:** This step is specific to Kraken GTDB formatted with host reference DNA added. This step will remove taxa classified as host, so that the raw abundance and relative abundance is that of the microbial community.
-- **Inputs:**  
-  - Bracken reports at:
-    - Species level: `sample_bracken.species.report.txt`
-    - Genus level: `sample_bracken.genus.report.txt`
-    - Phylum level: `sample_bracken.phylum.report.txt`
+- **Purpose:** Refines Kraken classification to provide abundance estimates at the species, genus and phylum level for each sample.
+- **Inputs:** Kraken report: `sample.report.txt`
 - **Outputs:**  
-  - Bracken host removed reports at:
-    - Species level: `sample_bracken.species.report.cleaned.txt`
-    - Genus level: `sample_bracken.genus.report.cleaned.txt`
-    - Phylum level: `sample_bracken.phylum.report.cleaned.txt`
- - **Notes:**
-  - Kraken GTDB inclusion of four host genomes: Bos indicus (GCF_029378745.1), Bos taurus (GCF_002263795.3), Homo sapiens (GCF_000001405.40), and Sus scrofa (GCF_000003025.6).
-  - If other host are added or removed the `scripts/clean_bracken_batch.py` will need to be modified for the host included. 
+  - Bracken reports at:
+    - Species level: `sample_bracken.species.report.txt`
+    - Genus level: `sample_bracken.genus.report.txt`
+    - Phylum level: `sample_bracken.phylum.report.txt`
+    - Domain level: `sample_bracken.domain.report.txt`
+- **Notes:**
+  - Outputs are used as **intermediate files** for downstream rule: `combine_bracken_outputs`
+  - Domain level file is needed for normalizing the reads at each taxon to the proportion of total prokaryotic reads (bacteria + archaea)
+  - This rule is also making `sample.report_bracken_species.txt` at each level in the `kraken2` directory. At some point see if we can either place these into a directory called `reports` or have them cleaned up in the shell block.
 
-🔹 **`rule combine_bracken_outputs` *Merging Abundance Tables***
+**`rule combine_bracken_outputs` *Merging Abundance Tables***
+
 - **Inputs:**  
-  - Bracken host removed reports at:
-    - Species level: `sample_bracken.species.report.cleaned.txt`
-    - Genus level: `sample_bracken.genus.report.cleaned.txt`
-    - Phylum level: `sample_bracken.phylum.report.cleaned.txt`
+  - Bracken reports at:
+    - Species level: `sample_bracken.species.report.txt`
+    - Genus level: `sample_bracken.genus.report.txt`
+    - Phylum level: `sample_bracken.phylum.report.txt`
+    - Domain level: `sample_bracken.domain.report.txt`
 - **Outputs:**  
   - Combined abundance tables for:
     - Species level: `merged_abundance_species.txt`
     - Genus level: `merged_abundance_genus.txt`
-    - Phylum level: `merged_abundance_pylum.txt`
+    - Phylum level: `merged_abundance_phylum.txt`
+    - Domain level: `merged_abundance_domain.txt`
 
-🔹 **`rule bracken_extract` *Relative Abundance Tables***
-- **Purpose:** generate tables for the raw and relative abundance for each taxonomic level for all samples
+**`clean_host_bracken` *Remove host taxonomy***
+
+- **Purpose:** Remove the host taxa from Bracken output files and normalize using the total remaining read counts
 - **Inputs:**
   - Combined abundance tables for:
     - Species level: `merged_abundance_species.txt`
     - Genus level: `merged_abundance_genus.txt`
-    - Phylum level: `merged_abundance_pylum.txt`
+    - Phylum level: `merged_abundance_phylum.txt`
+    - Domain level: `merged_abundance_domain.txt`
+- **Outputs**
+  - Corresponding cleaned abundance tables:
+    - Species level: `merged_abundance_species_cleaned.txt`
+    - Genus level: `merged_abundance_genus_cleaned.txt`
+    - Phylum level: `merged_abundance_phylum_cleaned.txt`
+    - Domain level: `merged_abundance_domain_cleaned.txt`
+- **Notes:**
+  - The script `clean_bracken_batch.py` contains the taxa filters that can be edited. Maybe these could be included in the config file so the script doesn't need to be modified.
+
+**`bracken_recompute_fractions` *Relative abundance using only prokaryotic reads***
+
+- **Purpose:** Recalculates the relative abundance by using the total prokaryotic reads (bacteria + archaea) from the Bracken domain table.
+- **Inputs:**:
+  - Corresponding cleaned abundance tables:
+    - Species level: `merged_abundance_species_cleaned.txt`
+    - Genus level: `merged_abundance_genus_cleaned.txt`
+    - Phylum level: `merged_abundance_phylum_cleaned.txt`
+    - Domain level: `merged_abundance_domain_cleaned.txt`
+- **Outputs**
+  - Combined Bracken tables with original and recalculated relative abundance
+    - Species level: `bracken_cleaned_adjusted_species.txt`
+    - Genus level: `bracken_cleaned_adjusted_genus.txt`
+    - Phylum level: `bracken_cleaned_adjusted_phylum.txt`
+
+**`rule bracken_extract` *Abundance Tables***
+
+- **Purpose:** Generate tables for the raw counts, bracken default relative abundance and the adjusted relative abundance for each taxonomic level for all samples.
+- **Inputs:**
+  - Combined Bracken tables with original and recalculated relative abundance
+    - Species level: `bracken_cleaned_adjusted_species.txt`
+    - Genus level: `bracken_cleaned_adjusted_genus.txt`
+    - Phylum level: `bracken_cleaned_adjusted_phylum.txt`
 - **Outputs:**
   - Combined relative and raw abundance tables for
-    - Species level: `Bracken_species_raw_abundance.csv` and `Bracken_species_relative_abundance.csv`
-    - Genus level: `Bracken_genus_raw_abundance.csv` and `Bracken_genus_relative_abundance.csv`
-    - Phylum level: `Bracken_phylum_raw_abundance.csv` and `Bracken_genus_relative_abundance.csv`
+    - Species level: `bracken_species_raw_abundance.csv`, `bracken_species_rel_abundance_default.csv`, and `bracken_species_rel_abundance_adjusted.csv`
+    - Genus level: `bracken_genus_raw_abundance.csv`, `bracken_genus_rel_abundance_default.csv`, and `bracken_genus_rel_abundance_adjusted.csv`
+    - Phylum level: `bracken_phylum_raw_abundance.csv`, `bracken_phylum_rel_abundance_default.csv`, and `bracken_phylum_rel_abundance_adjusted.csv`
+- **Notes:**
+  - The three output files are made so that the user can decide if they would like to use the adjusted Bracken tables.
+  
 ---
-### Module  `amr_short_reads.smk` contains these rules:
-### ALL parameters still need to go into config/config.yaml and wall time needs to be removed
-🔹 **`rule rgi_reload_database` *Load CARD DB***
+
+### Module  `amr_short_reads.smk`
+
+**`rule rgi_reload_database` *Load CARD DB***
+
 - **Purpose:** Checks if the CARD Database has been loaded from a common directory or user specific directory
 - **Inputs:** 
   - `card_reference.fasta`
@@ -216,29 +241,26 @@ The pipeline is modularized, with each module located in the `metatranscriptomic
 - **Outputs:**
   - Done marker `rgi_reload_db.done` to prevent the rule from re-running every time the pipeline is called.
 
-🔹 **`symlink_rgi_card` *Symlink CARD to the working directory***
+**`symlink_rgi_card` *Symlink CARD to the working directory***
+
 - **Purpose:** Prevent the re-loading of the CARD DB
 
-🔹 **`rule rgi_bwt` *Antimicrobial Resistance Gene Profiling***
+**`rule rgi_bwt` *Antimicrobial Resistance Gene Profiling***
+
 - **Purpose:** performs antimicrobial resistance gene profiling on the cleaned reads using *k*-mer alignment (kma)
-- **Inputs:** 
-  - Clean read pairs: `*_trimmed_clean_R1.fastq.gz`/`*_trimmed_clean_R2.fastq.gz` 
-- **Outputs:**  
-  - `*_paired.allele_mapping_data.json` – JSON-formatted allele mapping results  
-  - `*_paired.allele_mapping_data.txt` – Text-formatted allele mapping  
-  - `*_paired.artifacts_mapping_stats.txt` – Statistics on mapping artifacts  
-  - `*_paired.gene_mapping_data.txt` – Per-gene alignment details  
-  - `*_paired.overall_mapping_stats.txt` – Summary statistics across all mappings  
-  - `*_paired.reference_mapping_stats.txt` – Reference-specific mapping stats  
-  - `*_paired.sorted.length_100.bam` – Filtered and sorted BAM file with reads ≥100 bp  
-  - `*_paired.sorted.length_100.bam.bai` – BAM index for downstream access
+- **Inputs:**
+  - Clean read pairs: `sample_trimmed_clean_R1.fastq.gz`/`sample_trimmed_clean_R2.fastq.gz`
+- **Outputs:**
+  - `sample_paired.allele_mapping_data.txt`
+  - `sample_paired.artifacts_mapping_stats.txt`
+  - `sample_paired.gene_mapping_data.txt`
+  - `sample_paired.overall_mapping_stats.txt`  
+  - `sample_paired.reference_mapping_stats.txt`
 
 - **Notes:**
   - Uses default RGI BWT parameters.
-
-- **Performance Notes:**
-  >  **Wall time:**  
-  > - 4 cores wall time: ~45 min
+  - For large sample files the large memory node may be required.
+  - These files are marked as temporary in the rule: `sample_paired.allele_mapping_data.json`, `sample_paired.sorted.length_100.bam`, and `sample_paired.sorted.length_100.bam.bai`. If these are required the temporary() flag on the output files in the rule can be removed.
 
 ---
 
@@ -281,7 +303,7 @@ The `config/config.yaml` file contains the editable pipeline parameters, thread 
 
 #### Software
 
-- Snakemake version 9.6.0
+- Snakemake version 9.9.0
 - Snakemake-executor-plugin-slurm
 
 #### Databases

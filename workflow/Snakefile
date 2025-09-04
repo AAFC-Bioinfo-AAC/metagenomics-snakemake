@@ -128,19 +128,31 @@ rule all:
         expand(f"{BRACKEN_OUTPUT_DIR}/species/{{sample}}_bracken.species.report.txt", sample=SAMPLES),
         expand(f"{BRACKEN_OUTPUT_DIR}/genus/{{sample}}_bracken.genus.report.txt", sample=SAMPLES),
         expand(f"{BRACKEN_OUTPUT_DIR}/phylum/{{sample}}_bracken.phylum.report.txt", sample=SAMPLES),
-        # Merged/parsed bracken tables
+        expand(f"{BRACKEN_OUTPUT_DIR}/domain/{{sample}}_bracken.domain.report.txt", sample=SAMPLES),
         f"{BRACKEN_OUTPUT_DIR}/merged_abundance_species.txt",
         f"{BRACKEN_OUTPUT_DIR}/merged_abundance_genus.txt",
         f"{BRACKEN_OUTPUT_DIR}/merged_abundance_phylum.txt",
-        f"{BRACKEN_OUTPUT_DIR}/Bracken_species_raw_abundance.csv",
-        f"{BRACKEN_OUTPUT_DIR}/Bracken_species_relative_abundance.csv",
-        f"{BRACKEN_OUTPUT_DIR}/Bracken_genus_raw_abundance.csv",
-        f"{BRACKEN_OUTPUT_DIR}/Bracken_genus_relative_abundance.csv",
-        f"{BRACKEN_OUTPUT_DIR}/Bracken_phylum_raw_abundance.csv",
-        f"{BRACKEN_OUTPUT_DIR}/Bracken_phylum_relative_abundance.csv",
+        f"{BRACKEN_OUTPUT_DIR}/merged_abundance_domain.txt",
+        f"{BRACKEN_OUTPUT_DIR}/merged_abundance_species_cleaned.txt",
+        f"{BRACKEN_OUTPUT_DIR}/merged_abundance_genus_cleaned.txt",
+        f"{BRACKEN_OUTPUT_DIR}/merged_abundance_phylum_cleaned.txt",
+        f"{BRACKEN_OUTPUT_DIR}/merged_abundance_domain_cleaned.txt",
+        f"{BRACKEN_OUTPUT_DIR}/bracken_cleaned_adjusted_species.txt",
+        f"{BRACKEN_OUTPUT_DIR}/bracken_cleaned_adjusted_genus.txt",
+        f"{BRACKEN_OUTPUT_DIR}/bracken_cleaned_adjusted_phylum.txt",
+        # Merged/parsed bracken tables
+        f"{BRACKEN_OUTPUT_DIR}/bracken_species_raw_abundance.csv",
+        f"{BRACKEN_OUTPUT_DIR}/bracken_species_rel_abundance_default.csv",
+        f"{BRACKEN_OUTPUT_DIR}/bracken_species_rel_abundance_adjusted.csv",
+        f"{BRACKEN_OUTPUT_DIR}/bracken_genus_raw_abundance.csv",
+        f"{BRACKEN_OUTPUT_DIR}/bracken_genus_rel_abundance_default.csv",
+        f"{BRACKEN_OUTPUT_DIR}/bracken_genus_rel_abundance_adjusted.csv",
+        f"{BRACKEN_OUTPUT_DIR}/bracken_phylum_raw_abundance.csv",
+        f"{BRACKEN_OUTPUT_DIR}/bracken_phylum_rel_abundance_default.csv",
+        f"{BRACKEN_OUTPUT_DIR}/bracken_phylum_rel_abundance_adjusted.csv"
         # AMR screening with RGI BWT
-        expand(f"{CARD_RGI_OUTPUT_DIR}/{{sample}}/{{sample}}_paired.allele_mapping_data.txt", sample=SAMPLES),
+        #expand(f"{CARD_RGI_OUTPUT_DIR}/{{sample}}/{{sample}}_paired.allele_mapping_data.txt", sample=SAMPLES),
 
         # Required logs or done markers
-        f"{LOG_DIR}/rgi_reload_db.done",
-        f"{LOG_DIR}/rgi_symlink.done"
+        #f"{LOG_DIR}/rgi_reload_db.done",
+        #f"{LOG_DIR}/rgi_symlink.done"

@@ -48,5 +48,8 @@ kraken2:
   threads: 2
   conf_threshold: "0.5"
 bracken:
-  threads: 2
+  threshold_species: 10
+  threshold_genus: 10
+  threshold_phylum: 10
+  threshold_domain: 0
   readlen: 150
