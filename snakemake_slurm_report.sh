@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=20250827_malic_preprocessing_report
+#SBATCH --job-name=20250902_malic_report
 #SBATCH --output=%x_%A_%a.out
 #SBATCH --error=%x_%A_%a.err
 #SBATCH --cluster=gpsc8
@@ -18,4 +18,4 @@ export PATH="$PWD/bin:$PATH"
     --configfile /gpfs/fs7/aafc/projects/J-003518_afc_rdar_malate/code/metagenomics-snakemake/config/config.yaml \
     --conda-prefix /gpfs/fs7/aafc/projects/J-003518_afc_rdar_malate/code/malate-smk-conda-env \
     --printshellcmds \
-    --report /gpfs/fs7/aafc/projects/J-003518_afc_rdar_malate/code/metagenomics-snakemake/20250827_pre-processing_malic.html
+    --report /gpfs/fs7/aafc/projects/J-003518_afc_rdar_malate/code/metagenomics-snakemake/20250902_malic_report.html
