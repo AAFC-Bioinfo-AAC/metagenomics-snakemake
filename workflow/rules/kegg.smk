@@ -41,19 +41,24 @@ rule kegg_diamond:
         mkdir -p "$(dirname {output.diamond})"
 
         # per job temp folder
-        tmpbase="${TMPDIR:-/tmp}"
-        jobtmp="$tmpbase/diamond_{wildcards.sample}_$RANDOM"
-        mkdir -p "$jobtmp" || { echo "Failed to create job tmpdir $jobtmp" >> "{log}"; exit 1; }
+        tmpbase="${{TMPDIR:-/tmp}}"
+        jobtmp="$(mktemp -d "$tmpbase/diamond_{wildcards.sample}_XXXXXX")" || {{ echo "Failed to create job tmpdir $jobtmp" >> "{log}"; exit 1; }}
         echo "Using job tmpdir base: $jobtmp" >> "{log}"
         piz_temp="$jobtmp/piz_tmp"
         diamond_temp="$jobtmp/diamond_tmp"
         mkdir -p "$piz_temp" "$diamond_temp"
 
-        cleanup() {
+        cleanup() {{
+             # Extra sanity check: never allow jobtmp == tmpbase
+            if [[ "$jobtmp" == "$tmpbase" ]]; then
+                echo "Sanity check failed: jobtmp is exactly tmpbase—refusing to delete." >> "{log}"
+                return
+            fi
+            
             if [[ -n "$jobtmp" && -d "$jobtmp" && "$jobtmp" == "$tmpbase"/diamond_* ]]; then
                 rm -rf "$jobtmp"
             fi
-        }
+        }}
         trap cleanup EXIT
 
         # Set pigz threads from Snakemake param
@@ -63,7 +68,7 @@ rule kegg_diamond:
         [ "$diamond_threads" -lt 1 ] && diamond_threads=1
 
         # Decompress first, then run DIAMOND
-        pigz -dc -p "$pigz_threads" {input.merged} > "$piz_temp/{wildcards.sample}.fastq" 2>> {log} || { echo "Failed to decompress {input.merged}" >> "{log}"; exit 1; }
+        pigz -dc -p "$pigz_threads" {input.merged} > "$piz_temp/{wildcards.sample}.fastq" 2>> {log} || {{ echo "Failed to decompress {input.merged}" >> "{log}"; exit 1; }}
 
         diamond blastx \
         -d {input.diamond_db} \
