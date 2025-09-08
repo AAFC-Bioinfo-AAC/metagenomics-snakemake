@@ -12,4 +12,6 @@ localDB/
 snakemake_slurm_*
 *.html
 *reportseff.txt
-config/sample*
+config/samplesheet.csv
+snakemake_slurm_launcher.sh
+config/samplesheet_allsamples.csv.full
