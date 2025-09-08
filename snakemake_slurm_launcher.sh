@@ -1,12 +1,12 @@
 #!/bin/bash
-#SBATCH --job-name=taxonomy_additions_all_samples
+#SBATCH --job-name=minpath_test_run
 #SBATCH --output=%x_%A_%a.out
 #SBATCH --error=%x_%A_%a.err
 #SBATCH --cluster=gpsc8
 #SBATCH --partition=standard
 #SBATCH --account=aafc_aac
 #SBATCH --mem=2000
-#SBATCH --time=01:00:00
+#SBATCH --time=72:00:00
 #SBATCH --qos=low
 
 source /gpfs/fs7/aafc/common/miniforge/miniforge3/etc/profile.d/conda.sh
