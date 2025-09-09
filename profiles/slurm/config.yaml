@@ -126,9 +126,9 @@ set-resources:
     slurm_cluster: gpsc8
 
   kegg_diamond:
-    cpus: 16
+    cpus: 8
     mem_mb: 64000
-    runtime: 240
+    runtime: 480
     slurm_partition: standard
     slurm_account: aafc_aac
     slurm_cluster: gpsc8
@@ -144,7 +144,7 @@ set-resources:
   gene_ko_abundance:
     cpus: 1
     mem_mb: 8000
-    runtime: 60
+    runtime: 160
     slurm_partition: standard
     slurm_account: aafc_aac
     slurm_cluster: gpsc8
@@ -152,7 +152,7 @@ set-resources:
   minpath:
     cpus: 1
     mem_mb: 4000
-    runtime: 30
+    runtime: 240
     slurm_partition: standard
     slurm_account: aafc_aac
     slurm_cluster: gpsc8
@@ -160,7 +160,7 @@ set-resources:
   aggregate_minpath_pathways:
     cpus: 1
     mem_mb: 4000
-    runtime: 30
+    runtime: 160
     slurm_partition: standard
     slurm_account: aafc_aac
     slurm_cluster: gpsc8
