@@ -1,4 +1,4 @@
-# Metagenomics Snakemake 
+# Metagenomics Snakemake
 
 [![FR](https://img.shields.io/badge/lang-FR-yellow.svg)](README_FR.md)
 [![EN](https://img.shields.io/badge/lang-EN-blue.svg)](README.md)
@@ -31,6 +31,7 @@ For more info, refer: [Template Repository User Guide](https://github.com/AAFC-B
     - [Module `preprocessing.smk`](#module-preprocessingsmk)
     - [Module  `taxonomy.smk`](#module--taxonomysmk)
     - [Module  `amr_short_reads.smk`](#module--amr_short_readssmk)
+    - [Module  `kegg.smk`](#module--keggsmk)
   - [Data](#data)
   - [Parameters](#parameters)
   - [Usage](#usage)
@@ -62,6 +63,7 @@ For more info, refer: [Template Repository User Guide](https://github.com/AAFC-B
     - [Resources](#resources)
     - [Tools/Software](#toolssoftware)
   - [Citation](#citation)
+
 ---
 
 ## Overview
@@ -86,6 +88,11 @@ flowchart TD
 
         E --> W[RGI BWT]
         W --> Q((AMR Profile))
+
+        E --> R[DIAMOND]
+        R --> S((KEGG Alignment Summary))
+        S --> T[MinPath]
+        T --> U((MinPath Abundance))
     end
 
     %% TEMP FILE STYLING
@@ -108,9 +115,10 @@ The pipeline is modularized, with each module located in the `metatranscriptomic
 - **Purpose:** Performs adapter trimming, quality trimming, and filtering of paired-end reads.
 - **Inputs:** `samplesheet.csv` defines sample IDs and corresponding read pairs.
 - **Outputs:**
+
   - Trimmed paired reads: `sample_r1.fastq.gz`, `sample_r2.fastq.gz`
-  
 - **Notes:**
+
   - Parameters are defined in **`config/config.ymal`** for `fastp`.
   - These files are marked as temporary in the rule: `sample_u1.fastq.gz`, `sample_r2.fastq.gz`,`sample.fastp.html`, and `sample.fastp.json`. If these are required the temporary() flag on the output files in the rule can be removed.
 
@@ -118,30 +126,32 @@ The pipeline is modularized, with each module located in the `metatranscriptomic
 
 - **Purpose:** Aligns trimmed reads to a user created reference (Host/PhiX) that has been indexed by Bowtie2 index.
 - **Inputs:**
+
   - Trimmed paired reads: `*_r1.fastq.gz`, `*_r2.fastq.gz`
   - Bowtie2 index files with the suffix `.bt2`
 - **Outputs:**
-  - Sorted BAM file: `sample.bam`
 
+  - Sorted BAM file: `sample.bam`
 - **Notes:**
+
   - Uses **default parameters** from `Bowtie2`.
   - This file is marked as temporary in the rule: `sample.bam`. If it is required the temporary() flag on the output file in the rule can be removed.
 
 **`rule extract_unmapped_fastq` *Decontamination***
 
-- **Purpose:** extracts the reads that did not align into paired-end FASTQ files depleted of host and PhiX reads
+- **Purpose:** extracts the reads that did not align into paired-end FASTQ files depleted of host and PhiX reads.
 - **Inputs:**
   - Sorted BAM file: `sample.bam`
 - **Outputs:**
   - Clean read pairs: `sample_trimmed_clean_R1.fastq.gz`/`sample_trimmed_clean_R2.fastq.gz`
-  
+
 ---
 
 ### Module  `taxonomy.smk`
 
 **`rule kraken2` *Assign Taxonomy***
 
-- **Purpose:** Assign taxonomy to the clean reads using a Kraken2-formatted GTDB
+- **Purpose:** Assign taxonomy to the clean reads using a Kraken2-formatted GTDB.
 - **Inputs:**
   - Clean read pairs: `sample_trimmed_clean_R1.fastq.gz`/`sample_trimmed_clean_R2.fastq.gz`
 - **Outputs:**
@@ -153,7 +163,7 @@ The pipeline is modularized, with each module located in the `metatranscriptomic
 
 - **Purpose:** Refines Kraken classification to provide abundance estimates at the species, genus and phylum level for each sample.
 - **Inputs:** Kraken report: `sample.report.txt`
-- **Outputs:**  
+- **Outputs:**
   - Bracken reports at:
     - Species level: `sample_bracken.species.report.txt`
     - Genus level: `sample_bracken.genus.report.txt`
@@ -166,13 +176,13 @@ The pipeline is modularized, with each module located in the `metatranscriptomic
 
 **`rule combine_bracken_outputs` *Merging Abundance Tables***
 
-- **Inputs:**  
+- **Inputs:**
   - Bracken reports at:
     - Species level: `sample_bracken.species.report.txt`
     - Genus level: `sample_bracken.genus.report.txt`
     - Phylum level: `sample_bracken.phylum.report.txt`
     - Domain level: `sample_bracken.domain.report.txt`
-- **Outputs:**  
+- **Outputs:**
   - Combined abundance tables for:
     - Species level: `merged_abundance_species.txt`
     - Genus level: `merged_abundance_genus.txt`
@@ -181,7 +191,7 @@ The pipeline is modularized, with each module located in the `metatranscriptomic
 
 **`clean_host_bracken` *Remove host taxonomy***
 
-- **Purpose:** Remove the host taxa from Bracken output files and normalize using the total remaining read counts
+- **Purpose:** Remove the host taxa from Bracken output files and normalize using the total remaining read counts.
 - **Inputs:**
   - Combined abundance tables for:
     - Species level: `merged_abundance_species.txt`
@@ -227,15 +237,15 @@ The pipeline is modularized, with each module located in the `metatranscriptomic
     - Phylum level: `bracken_phylum_raw_abundance.csv`, `bracken_phylum_rel_abundance_default.csv`, and `bracken_phylum_rel_abundance_adjusted.csv`
 - **Notes:**
   - The three output files are made so that the user can decide if they would like to use the adjusted Bracken tables.
-  
+
 ---
 
 ### Module  `amr_short_reads.smk`
 
 **`rule rgi_reload_database` *Load CARD DB***
 
-- **Purpose:** Checks if the CARD Database has been loaded from a common directory or user specific directory
-- **Inputs:** 
+- **Purpose:** Checks if the CARD Database has been loaded from a common directory or user specific directory.
+- **Inputs:**
   - `card_reference.fasta`
   - `card.json`
 - **Outputs:**
@@ -247,20 +257,88 @@ The pipeline is modularized, with each module located in the `metatranscriptomic
 
 **`rule rgi_bwt` *Antimicrobial Resistance Gene Profiling***
 
-- **Purpose:** performs antimicrobial resistance gene profiling on the cleaned reads using *k*-mer alignment (kma)
+- **Purpose:** performs antimicrobial resistance gene profiling on the cleaned reads using *k*-mer alignment (kma).
 - **Inputs:**
+
   - Clean read pairs: `sample_trimmed_clean_R1.fastq.gz`/`sample_trimmed_clean_R2.fastq.gz`
 - **Outputs:**
+
   - `sample_paired.allele_mapping_data.txt`
   - `sample_paired.artifacts_mapping_stats.txt`
   - `sample_paired.gene_mapping_data.txt`
-  - `sample_paired.overall_mapping_stats.txt`  
+  - `sample_paired.overall_mapping_stats.txt`
   - `sample_paired.reference_mapping_stats.txt`
-
 - **Notes:**
+
   - Uses default RGI BWT parameters.
   - For large sample files the large memory node may be required.
   - These files are marked as temporary in the rule: `sample_paired.allele_mapping_data.json`, `sample_paired.sorted.length_100.bam`, and `sample_paired.sorted.length_100.bam.bai`. If these are required the temporary() flag on the output files in the rule can be removed.
+
+---
+
+### Module  `kegg.smk`
+
+**`merge_read_pairs` *Concatenate***
+
+- **Purpose:** Concatenate read pairs for each sample.
+- **Inputs:**
+  - Clean read pairs: `sample_trimmed_clean_R1.fastq.gz`/`sample_trimmed_clean_R2.fastq.gz`
+- **Outputs:**
+  - Concatenated read pairs: `sample_merged.fastq.gz`
+
+**`kegg_diamond` *DIAMOND Alignment***
+
+- **Purpose:** Provide a tab-delimited text file that summarizes the alignment of sample reads against a DIAMOND formatted KEGG protein database.
+- **Inputs:**
+  - Concatenated read pairs: `sample_merged.fastq.gz`
+  - DIAMOND formatted KEGG protein database: `prokaryotes.pep.dmnd`
+**Outputs:**
+  - DIAMOND alignment file: `sample_diamond_output.m8`
+
+**`count_reads` *Read Count***
+
+- **Purpose:** Total reads for each concatenated read pairs.
+- **Inputs:**
+  - Concatenated read pairs: `sample_merged.fastq.gz`
+**Outputs:**
+  - Text file with the read count: `sample_read_count.txt`
+
+**`gene_ko_abundance` *KO-Annotated Abundance Table***
+
+- **Purpose:** Generate a KEGG orthology table with gene counts normalized by reads per kilobase and counts per million.
+- **Inputs:**
+  - DIAMOND alignment file: `sample_diamond_output.m8`
+  - Text file with the read count: `sample_read_count.txt`
+  - KEGG Orthology assignments of genes `ko_genes.list`
+- **Outputs:**
+  - Abundance table: `sample_gene_ko_abundance.tsv`
+
+**`make_ko_lists` *Generate KO list for MinPath***
+
+- **Purpose:** Generate a KEGG orthology list from the KEGG orthology abundance table and format the list for MinPath.
+- **Inputs:**
+  - Abundance table: `sample__gene_ko_abundance.tsv`
+- **Outputs:**
+  - Raw extracted KEGG orthology ID list: `sample_ko_list_raw.txt`
+  - MinPath formatted KEGG orthology ID list: `sample_ko_list_fixed.txt`
+
+**`minpath` *Run MinPath***
+
+- **Purpose:** Infer the minimal set of pathway presence to explain the KEGG orthology ID list.
+- **Inputs:**
+  - MinPath formatted KEGG orthology ID list: `sample_ko_list_fixed.txt`
+- **Outputs:**
+  - List of predicted pathways in the sample: `sample_minpath_output.txt`
+
+**`aggregate_minpath_pathways` *MinPath Abundance***
+
+- **Purpose:** For only MinPath confirmed pathways produce a pathway-level abundance table.
+- **Inputs:**
+  - List of predicted pathways in the sample: `sample_minpath_output.txt`
+  - Abundance table: `sample_gene_ko_abundance.tsv`
+  - KEGG orthology assignments of pathways: `ko_pathway.list`
+- **Outputs:**
+  - Table of abundances pathways confirmed by MinPath: `sample_aggregated_minpath.tsv`
 
 ---
 
@@ -280,20 +358,24 @@ The raw input data must be in the form of paired-end FASTQ files generated from 
 
 ## Parameters
 
-The `config/config.yaml` file contains the editable pipeline parameters, thread allocation for rules with more than one core, and the realtive file paths for input and output. The prefix of the absolute file path must go in `.env`. Most tools in the pipeline have default parameters. The tools with papmerts differnt from defult or that can be editied in the `config/config.ymal` file are listed below.
+The `config/config.yaml` file contains the editable pipeline parameters, thread allocation for rules with more than one core, and the relative file paths for input and output. The prefix of the absolute file path must go in `.env`. Most tools in the pipeline have default parameters. The tools with parameters different from default or that can be edited in the `config/config.ymal` file are listed below.
 
-| Parameter          | Value                                                                                               |
-| -------------------- | ----------------------------------------------------------------------------------------------------- |
-| *samplesheet.csv* | *The samplesheet is described here: [Sample list](#33-sample-list)* |
-| *fastp: cut_tail* | *If true, trim low quality bases from the 3′ end until a base meets or exceeds the cut_mean_quality threshold. If false,disabled.*|
-| *fastp: cut_front* | *If true, trim low quality bases from the 5′ end until a base meets or exceeds the cut_mean_quality threshold. If false,disabled.*|
-| *fastp: cut_mean_quality* | *A positive integer specifying the minimum average quality score threshold for sliding window trimming.*|
-| *fastp: cut_window_size* | *A positive interger specifing the sliding window size in bp when using cut_mean_quality.*|
-| *fastp: qualified_quality_phred* | *A positive interger specifing the minimum Phed score that a base needs to be considered qualified*.| 
-| *fastp: detect_adapter_for_pe* | *If true, auto adapter detection. If false,disabled.*| 
-| *fastp: length_required* | *Reads shorter then this positive interger will be discarded.*| 
-| *kraken2: conf_threshold* | *Interval between 0 and 1. Higher values require more of a read’s k-mers to match the same taxon before it is classified, increasing precision but reducing sensitivity.*              |
-| *bracken: readlen* | *The read length of your data in bp.*              |
+
+| Parameter                        | Value                                                                                                                                                                      |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| *samplesheet.csv*                | *The samplesheet is described here: [Sample list](#33-sample-list)*                                                                                                        |
+| *fastp: cut_tail*                | *If true, trim low quality bases from the 3′ end until a base meets or exceeds the cut_mean_quality threshold. If false,disabled.*                                        |
+| *fastp: cut_front*               | *If true, trim low quality bases from the 5′ end until a base meets or exceeds the cut_mean_quality threshold. If false,disabled.*                                        |
+| *fastp: cut_mean_quality*        | *A positive integer specifying the minimum average quality score threshold for sliding window trimming.*                                                                   |
+| *fastp: cut_window_size*         | *A positive interger specifing the sliding window size in bp when using cut_mean_quality.*                                                                                 |
+| *fastp: qualified_quality_phred* | *A positive interger specifing the minimum Phed score that a base needs to be considered qualified*.                                                                       |
+| *fastp: detect_adapter_for_pe*   | *If true, auto adapter detection. If false,disabled.*                                                                                                                      |
+| *fastp: length_required*         | *Reads shorter then this positive interger will be discarded.*                                                                                                             |
+| *kraken2: conf_threshold*        | *Interval between 0 and 1. Higher values require more of a read’s k-mers to match the same taxon before it is classified, increasing precision but reducing sensitivity.* |
+| *bracken: readlen*               | *The read length of your data in bp.*                                                                                                                                      |
+| *kegg_diamond: sensitivity*      | *Sensitivity modes are descibed in the [DIAMOND github wiki](https://github.com/bbuchfink/diamond/wiki/3.-Command-line-options).*|
+|*kegg_diamond: max_target_num*    | *--max-target-seqs/-k is the max number of target sequences per alignment to report. Set at 1 in this pipeline to only keep the best hit. Default is 25.*|
+|*kegg_diamond: out_file_format*   | *--outfmt is the output file format. Set as 6 qseqid sseqid slen pident length mismatch gapopen qstart qend sstart send evalue bitscore in this pipeline. |
 
 ---
 
@@ -308,21 +390,19 @@ The `config/config.yaml` file contains the editable pipeline parameters, thread 
 
 #### Databases
 
-- **Bowtie2**  
-  Bowtie2 uses an index of reference sequences to align reads. This index must be created before running the pipeline. The index files (with the `.bt2` extension) must be located in the directory you specify in the `config/config.yaml` file. Make sure to update the prefix of these files in the `config.yaml` file.
-  - In `resources/bowtie2_index` there is a `README.md` file that details where the index was copied from.
+- **Bowtie2** Bowtie2 uses an index of reference sequences to align reads. This index must be created before running the pipeline. The index files (with the `.bt2` extension) must be located in the directory you specify in the `config/config.yaml` file. Make sure to update the prefix of these files in the `config.yaml` file.
 
-- **Kraken2**  
-  Kraken2 requires a Kraken2-formatted GTDB database.
+  - In `resources/bowtie2_index` there is a `README.md` file that details where the index was copied from.
+- **Kraken2** Kraken2 requires a Kraken2-formatted GTDB database.
+
   - Kraken2-formatted GTDB release 226 built with the following scripts provided by Jean-Simon Brouard.
-  - The Bracken database was built specifying a read length of 150 bp and a kmer length of 35 (default for Kraken2) 
+  - The Bracken database was built specifying a read length of 150 bp and a kmer length of 35 (default for Kraken2)
   - As per Gihawi et al, 2023, Kraken2 can assign host reads to bacteria in low microbial biomass samples if the host genomes are not included in the Kraken2 database. Therefore, this version of the GTDB release 226 was formatted for Kraken2 with the inclusion of four host genomes: Bos indicus (GCF_029378745.1), Bos taurus (GCF_002263795.3), Homo sapiens (GCF_000001405.40), and Sus scrofa (GCF_000003025.6).
 
-  > **See:** Gihawi A, Ge Y, Lu J, Puiu D, Xu A, Cooper CS, Brewer DS, Pertea M, Salzberg SL. Major data analysis errors invalidate cancer microbiome findings. mBio. 2023 Oct 31;14(5):e0160723. doi: 10.1128/mbio.01607-23. Epub 2023 Oct 9. 
-
-
-- **RGI BWT/CARD**  RGI BWT requires the CARD (Comprehensive Antibiotic Resistance Database) database. The version tested in this pipeline was 4.0.1. The database can be located on a common drive or in your working directory.  
-  Instructions for installing the CARD database are available on [CARD RGI github](https://github.com/arpcard/rgi/blob/master/docs/rgi_bwt.rst).  
+  > **See:** Gihawi A, Ge Y, Lu J, Puiu D, Xu A, Cooper CS, Brewer DS, Pertea M, Salzberg SL. Major data analysis errors invalidate cancer microbiome findings. mBio. 2023 Oct 31;14(5):e0160723. doi: 10.1128/mbio.01607-23. Epub 2023 Oct 9.
+  >
+- **RGI BWT/CARD**  RGI BWT requires the CARD (Comprehensive Antibiotic Resistance Database) database. The version tested in this pipeline was 4.0.1. The database can be located on a common drive or in your working directory.
+  Instructions for installing the CARD database are available on [CARD RGI github](https://github.com/arpcard/rgi/blob/master/docs/rgi_bwt.rst).
   Steps copied from the RGI documentation:
 
   **Download CARD data:**
@@ -339,20 +419,34 @@ The `config/config.yaml` file contains the editable pipeline parameters, thread 
   ```
 
   **Note:** the files after loading and annotating card must be called `card.json` and `card_reference.fasta`
+- **KEGG** The functional pathway analysis requires the [KEGG database](https://www.genome.jp/kegg/). Below are the files required for the analysis:
+
+  - DIAMOND formatted KEGG protein database: `prokaryotes.pep.dmnd`
+    - Instructiond for creating the `prokaryotes.pep.dmnd` are avalible on [DIAMOND github wiki](https://github.com/bbuchfink/diamond/wiki).
+    - Here the database was created with the KEGG protein sequnce database for prokaryotic orginisms.
+
+    ```bash
+    zcat "prokaryotes.pep" | diamond makedb --in - -d "prokaryotes.pep" --threads 20
+    ```
+  - KEGG Orthology assignments of genes `ko_genes.list`
+  - KEGG Orthology assignments of pathways `ko_pathway.list`
 
 ### Setup Instructions
 
 #### 1. Installation
 
-Clone the repository into the directory where you want to run the metagenomics Snakemake pipeline.  
+Clone the repository into the directory where you want to run the metagenomics Snakemake pipeline.
 **Note:** This location must be on an HPC (High Performance Computing) cluster with access to a high-memory node (at least 600 GB RAM) and sufficient storage for all metagenomics analyses.
 
 ```bash
 cd /path/to/code/directory
 git clone <repository-url>
 ```
+
 #### 2. SLURM Profile
+
 ##### 2.1. SLURM Profile Directory Structure
+
 ```
 metatranscriptomics_pipeline/
 ├── Workflow/
@@ -366,12 +460,15 @@ metatranscriptomics_pipeline/
 |   └── samples.txt
 ├── run_snakemake.sh            ← your SLURM launcher
 ├── .env
-└── ...                         
+└── ...                     
 ```
+
 ##### 2.2. Profile Configuration
+
 The SLURM execution settings are configured in profiles/slurm/config.yaml. This file defines resource defaults, cluster submission commands, and job script templates for Snakemake. This file should be adjusted for each HPC configuration. Remember to adjust `rerun-triggers: [input, params, software-env]` pipeline is being modified. The pre-rule resources need to be adjusted for the size and number of input samples for each rule.
 
 **Example for profiles/slurm/config.yaml:**
+
 ```bash
 ### How Snakemake assigns resources to rules
 
@@ -379,7 +476,7 @@ cores: 60
 jobs: 10 
 latency-wait: 60 
 rerun-incomplete: true
-retries: 2              
+retries: 2          
 max-jobs-per-second: 2 
 executor: slurm
 
@@ -438,13 +535,13 @@ The pipeline requires the following configuration files: `config.yaml`, `.env`, 
 
 The `config.yaml` file must be located in the `config` directory, which resides in the main Snakemake working directory. This file specifies crucial settings, including:
 
-- Path to the `samples.txt`  
-- Input and output directories  
-- File paths to required databases 
-- Parameters for each rule **NEED TO UPDATE RULES** 
+- Path to the `samples.txt`
+- Input and output directories
+- File paths to required databases
+- Parameters for each rule **NEED TO UPDATE RULES**
 
-**Note:**  
-You must edit `config.yaml` **before** running the pipeline to ensure all paths are correctly set.  
+**Note:**
+You must edit `config.yaml` **before** running the pipeline to ensure all paths are correctly set.
 For best practice, use database paths that are in common locations to all users on the HPC.
 
 ##### 3.2. Environment file
@@ -463,11 +560,11 @@ touch .env
  PROJECT_ROOT = path/to/project/root
  TMPDIR = path/to/temp/on/cluster **Issue with $USER. I had to use my actual username in the .env file**
  RGI_CARD = path/to/card.json and card_reference.fasta
- ```
+```
 
 ##### 3.3. Sample list
 
- `samplesheet.csv` Has the following column names: "sample","fastq_1","fastq_2". For the column 'sample" use the sampleID for the read pair, and for "fastq_1","fastq_2" have the names of the read1 and read2 files as they appear in the raw fastq files directory. The file location of the `samplesheet.csv` must be`config/samplesheet.csv`.
+`samplesheet.csv` Has the following column names: "sample","fastq_1","fastq_2". For the column 'sample" use the sampleID for the read pair, and for "fastq_1","fastq_2" have the names of the read1 and read2 files as they appear in the raw fastq files directory. The file location of the `samplesheet.csv` must be`config/samplesheet.csv`.
 
 **Example `samplesheet.csv`:**
 sample,fastq_1,fastq_2
@@ -494,8 +591,11 @@ snakemake --use-conda \
   --conda-create-envs-only \
   --conda-prefix path/to/common/lab/folder/conda/metatranscriptomics-snakemake-conda
 ```
+
 ##### 4.2. SLURM launcher
+
 This is the script you use to submit the Snakemake pipeline to SLURM.
+
 - **Before submitting job to SLURM run `export SLURM_CONF="/etc/slurm-llnl/gpsc8.science.gc.ca.conf"`**
 - Defines resources for the job scheduler
 - Activates the Snakemake environment
@@ -525,9 +625,12 @@ export PATH="$PWD/bin:$PATH"
     --conda-prefix absolute/path/to/common/conda/metatranscriptomics-snakemake-conda \
     --printshellcmds \
     --keep-going 
-  ```
+```
+
 ### Notes
+
 - temp folder is set to `/gpfs/fs7/aafc/scratch/$USER/tmpdir` for running on the GPSC.
+
 #### Warnings
 
 - The conda environments will not be created if the conda configuration is `conda config --set channel_priority strict`.
@@ -592,7 +695,7 @@ The pipeline and analysis associated with it is published here:
 
 - Link to Snakemake Manual
 - Link to Tool X Documentation
-  
+
 ### Tools/Software
 
 References to tools and software used here can be found in the [CITATIONS.md](CITATIONS.md) file.

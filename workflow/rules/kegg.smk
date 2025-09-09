@@ -76,8 +76,8 @@ rule kegg_diamond:
         -o {output.diamond} \
         --tmpdir "$diamond_temp" \
         {params.sensitivity} \
-        {params.max_target_num} \
-        {params.out_file_format} \
+        --max-target-seqs {params.max_target_num} \
+        --outfmt {params.out_file_format} \
         --threads "$diamond_threads"
         """
 rule count_reads:
