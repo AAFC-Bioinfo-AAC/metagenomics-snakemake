@@ -66,7 +66,8 @@ rule kegg_diamond:
             {params.sensitivity} \
             --max-target-seqs {params.max_target_num} \
             --outfmt {params.out_file_format} \
-            --threads "$diamond_threads"
+            --threads "$diamond_threads" \
+            2>> {log}
         """
 rule count_reads:
     input:
