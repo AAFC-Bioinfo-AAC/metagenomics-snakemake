@@ -100,6 +100,7 @@ TAXONOMY_DB = config["gtbd_DB"]
 MINPATH_SCRIPT = os.path.join(PROJECT_ROOT, config["minpath_script"])
 KEGG_DIAMOND = os.path.join(PROJECT_ROOT, config["kegg_diamond_DB"])
 KEGG_KO = config["ko_lists"]
+KEGG_BRITE_HIERARCHY = os.path.join(PROJECT_ROOT, config["kegg_brite_hierarchy"])
 
 ## SAMPLES 
 SAMPLESHEET_PATH = os.path.join(CONFIG_DIR, config["samplesheet"])
@@ -156,6 +157,7 @@ rule all:
         expand(f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_ko_list_fixed.txt", sample=SAMPLES),
         expand(f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_minpath_output.txt", sample=SAMPLES),
         expand(f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_aggregated_minpath.tsv", sample=SAMPLES),
+        expand(f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_ko_pathway_abundance_with_category.tsv", sample=SAMPLES),
         # Required logs or done markers
         f"{LOG_DIR}/rgi_reload_db.done",
         f"{LOG_DIR}/rgi_symlink.done"

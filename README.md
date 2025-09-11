@@ -93,6 +93,7 @@ flowchart TD
         R --> S((KEGG Alignment Summary))
         S --> T[MinPath]
         T --> U((MinPath Abundance))
+        U --> v((Functional Categories))
     end
 
     %% TEMP FILE STYLING
@@ -324,11 +325,15 @@ The pipeline is modularized, with each module located in the `metatranscriptomic
 
 **`minpath` *Run MinPath***
 
-- **Purpose:** Infer the minimal set of pathway presence to explain the KEGG orthology ID list.
+- **Purpose:** Infer the minimal set of pathway presence to explain the KEGG orthology ID list by running MinPath.
 - **Inputs:**
   - MinPath formatted KEGG orthology ID list: `sample_ko_list_fixed.txt`
 - **Outputs:**
   - List of predicted pathways in the sample: `sample_minpath_output.txt`
+- **Notes:**
+
+  - This rule runs the script MinPath.py from MinPath version 1.6, which is available on the [MinPath github](https://github.com/mgtools/MinPath).
+  - The script will be located in the `workflow/scripts` directory when the repo is cloned.
 
 **`aggregate_minpath_pathways` *MinPath Abundance***
 
@@ -339,6 +344,15 @@ The pipeline is modularized, with each module located in the `metatranscriptomic
   - KEGG orthology assignments of pathways: `ko_pathway.list`
 - **Outputs:**
   - Table of abundances pathways confirmed by MinPath: `sample_aggregated_minpath.tsv`
+  
+**`kegg_category_mappings` * Functional Categories***
+
+- **Purpose:** To summarize the MinPath-confirmed pathways into higher-level categories
+- **Inputs:**
+  - Table of abundances pathways confirmed by MinPath: `sample_aggregated_minpath.tsv`
+  - BRITE hierarchy file from the KEGG database: `ko00001.keg`
+- **Outputs:**
+  - Table of MinPath-confirmed pathways into higher-level categories: `sample_ko_pathway_abundance_with_category.tsv`
 
 ---
 
@@ -430,6 +444,8 @@ The `config/config.yaml` file contains the editable pipeline parameters, thread 
     ```
   - KEGG Orthology assignments of genes `ko_genes.list`
   - KEGG Orthology assignments of pathways `ko_pathway.list`
+  - KEGG BRITE hierarchy file `ko00001.keg` avalible here <https://www.kegg.jp/kegg-bin/download_htext?htext=ko00001.keg&format=htext&KEGG>.
+**Note:** The KEGG BRITE file is in the snakemake folder. It would be better suited in the`data/reference/databases/KEGG` direcorty, but I was getting disk space full errors.
 
 ### Setup Instructions
 
@@ -447,10 +463,10 @@ git clone <repository-url>
 
 ##### 2.1. SLURM Profile Directory Structure
 
-```
+```bash
 metatranscriptomics_pipeline/
 ├── Workflow/
-│   └── Snakemake/
+│   └── Snakefile
 │   └── ... 
 ├── profiles/
 │   └── slurm/
@@ -490,6 +506,7 @@ default-resources:
   - slurm_partition=standard
   - slurm_cluster=gpsc8
   - runtime=60       # minutes
+  - slurm_qos=low    #If jobs are held in queue for long.
   - mem_mb=4000
   - cpus=1
 
@@ -581,7 +598,11 @@ Snakemake can automatically create and load Conda environments for each rule in 
 
 - `bedtools.yaml`
 - `bowtie2.yaml`
+- `diamond.yaml`
+- `fastp.yaml`
 - `kraken2.yaml`
+- `minpath.yaml`
+- `python3.yaml`
 - `rgi.yaml`
 
 Load the required conda environments for the pipeline with:
@@ -613,6 +634,7 @@ This is the script you use to submit the Snakemake pipeline to SLURM.
 #SBATCH --account=aafc_aac
 #SBATCH --mem=2000
 #SBATCH --time=8:00:00
+#SBATCH --qos=low #If jobs are stuck in queue
 
 source /gpfs/fs7/aafc/common/miniforge/miniforge3/etc/profile.d/conda.sh
 
