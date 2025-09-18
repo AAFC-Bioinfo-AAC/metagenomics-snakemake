@@ -34,8 +34,6 @@ kegg_diamond_DB: "data/reference/databases/KEGG"
 # File path for KEGG BRITE hierarchy
 kegg_brite_hierarchy: "code/metagenomics-snakemake/resources"
 
-### Relative file path to MinPath script
-minpath_script: "code/metagenomics-snakemake/workflow/scripts/MinPath.py"
 
 ### Parameters for rules ###
 ## preprocessing.smk

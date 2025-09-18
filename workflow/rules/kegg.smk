@@ -118,6 +118,9 @@ rule minpath:
         f"{LOG_DIR}/kegg/{{sample}}_minpath.log"
     conda:
         "../envs/minpath.yaml"
+    params:
+        minpath_script = "workflow/scripts/MinPath/MinPath.py"
+
     shell:
         r"""
         echo "MinPath version is 1.6" >> {log}
@@ -125,7 +128,7 @@ rule minpath:
             echo "[`date '+%Y-%m-%d %H:%M:%S'`] KO list is empty for {wildcards.sample}. Skipping MinPath." | tee -a {log}
             touch {output.minpath_out}
         else
-            python {MINPATH_SCRIPT} -ko {input.ko_list_fixed} -report {output.minpath_out} &>> {log}
+            python {params.minpath_script} -ko {input.ko_list_fixed} -report {output.minpath_out} &>> {log}
         fi
         """
 rule aggregate_minpath_pathways:

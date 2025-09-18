@@ -97,7 +97,6 @@ BOWTIE_INDEX_FILES = [
 
 TAXONOMY_DB = config["gtbd_DB"]
 
-MINPATH_SCRIPT = os.path.join(PROJECT_ROOT, config["minpath_script"])
 KEGG_DIAMOND = os.path.join(PROJECT_ROOT, config["kegg_diamond_DB"])
 KEGG_KO = config["ko_lists"]
 KEGG_BRITE_HIERARCHY = os.path.join(PROJECT_ROOT, config["kegg_brite_hierarchy"])
