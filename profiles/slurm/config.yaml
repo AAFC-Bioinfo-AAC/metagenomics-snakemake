@@ -70,14 +70,6 @@ set-resources:
     slurm_cluster: gpsc8
 
   bracken:
-    cpus: 2
-    mem_mb: 4000
-    runtime: 30
-    slurm_partition: standard
-    slurm_account: aafc_aac
-    slurm_cluster: gpsc8
-
-  clean_host_bracken:
     cpus: 1
     mem_mb: 4000
     runtime: 30
@@ -92,7 +84,23 @@ set-resources:
     slurm_partition: standard
     slurm_account: aafc_aac
     slurm_cluster: gpsc8
-   
+
+  clean_host_bracken:
+    cpus: 1
+    mem_mb: 4000
+    runtime: 30
+    slurm_partition: standard
+    slurm_account: aafc_aac
+    slurm_cluster: gpsc8
+
+  bracken_recompute_fractions:
+    cpus: 1
+    mem_mb: 4000
+    runtime: 30
+    slurm_partition: standard
+    slurm_account: aafc_aac
+    slurm_cluster: gpsc8
+
   bracken_extract:
     cpus: 1
     mem_mb: 2000
