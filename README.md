@@ -333,7 +333,13 @@ The pipeline is modularized, with each module located in the `metatranscriptomic
 - **Notes:**
 
   - This rule runs the script MinPath.py from MinPath version 1.6, which is available on the [MinPath github](https://github.com/mgtools/MinPath).
-  - The script will be located in the `workflow/scripts` directory when the repo is cloned.
+  - The MinPath program directory must be added into the scripts folder `workflow/scripts/MinPath`.
+  - The file permission for glpsol must be changed by running
+
+      ```bash
+      chmod +x /abs/path/to/the/snakemake/workflow/scripts/MinPath/glpk-4.6/examples/glpsol
+      ```
+
 
 **`aggregate_minpath_pathways` *MinPath Abundance***
 
@@ -401,6 +407,14 @@ The `config/config.yaml` file contains the editable pipeline parameters, thread 
 
 - Snakemake version 9.9.0
 - Snakemake-executor-plugin-slurm
+- MinPath version 1.6
+  - The MinPath software is avalible on the [MinPath github](https://github.com/mgtools/MinPath/blob/master/MinPath.py)
+  - The repository needs to be placed in the `project-snakemake/workflow/scripts` directory
+  - The file premissions for `project-snakemake/workflow/scripts/MinPath/glpk-4.6/examples/glpsol` need to be changed to executable:
+  
+``` bash
+chmod +x absolute/path/code/metagenomics-snakemake/workflow/scripts/MinPath/glpk-4.6/examples/glpsol
+```
 
 #### Databases
 
