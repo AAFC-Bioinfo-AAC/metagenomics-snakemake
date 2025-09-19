@@ -19,9 +19,9 @@ rule kraken2:
         f"{LOG_DIR}/kraken2/{{sample}}.log"
     conda:
         "../envs/kraken2.yaml"
-    threads: config["kraken2"].get("threads", 2)
+    threads: config.get("kraken2", {}).get("threads", 2)
     params:
-        conf_threshold = config['kraken2'].get("conf_threshold", "0.5")
+        conf_threshold = config.get("kraken2", {}).get("conf_threshold", "0.5")
     shell:
         r"""
         set -euo pipefail
@@ -56,11 +56,11 @@ rule bracken:
     conda:
         "../envs/kraken2.yaml"
     params:
-        readlen = config["bracken"].get("readlen", 150),
-        threshold_species = config["bracken"].get("threshold_species", 10),
-        threshold_genus = config["bracken"].get("threshold_genus", 10),
-        threshold_phylum = config["bracken"].get("threshold_phylum", 10),
-        threshold_domain = config["bracken"].get("threshold_domain", 0)
+        readlen = config.get("bracken", {}).get("readlen", 150),
+        threshold_species = config.get("bracken", {}).get("threshold_species", 10),
+        threshold_genus = config.get("bracken", {}).get("threshold_genus", 10),
+        threshold_phylum = config.get("bracken", {}).get("threshold_phylum", 10),
+        threshold_domain = config.get("bracken", {}).get("threshold_domain", 0)
     shell:
         r"""
         set -euo pipefail

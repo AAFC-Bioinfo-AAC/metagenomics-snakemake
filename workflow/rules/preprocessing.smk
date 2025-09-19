@@ -18,14 +18,14 @@ rule fastp_pe:
     log:
         f"{LOG_DIR}/fastp/{{sample}}.fastp.log"
     params:
-        cut_tail = "--cut_tail" if config["fastp"].get("cut_tail", True) else "",
-        cut_front = "--cut_front" if config["fastp"].get("cut_front", True) else "",
-        detect_adapter = "--detect_adapter_for_pe" if config["fastp"].get("detect_adapter_for_pe", True) else "",
-        cut_mean_quality = config["fastp"].get("cut_mean_quality", 20),
-        cut_window_size = config["fastp"].get("cut_window_size", 4),
-        qualified_quality_phred = config["fastp"].get("qualified_quality_phred", 15),
-        length_required = config["fastp"].get("length_required", 100)
-    threads: config["fastp"].get("threads", 4)
+        cut_tail = "--cut_tail" if config.get("fastp", {}).get("cut_tail", True) else "",
+        cut_front = "--cut_front" if config.get("fastp", {}).get("cut_front", True) else "",
+        detect_adapter = "--detect_adapter_for_pe" if config.get("fastp", {}).get("detect_adapter_for_pe", True) else "",
+        cut_mean_quality = config.get("fastp", {}).get("cut_mean_quality", 20),
+        cut_window_size = config.get("fastp", {}).get("cut_window_size", 4),
+        qualified_quality_phred = config.get("fastp", {}).get("qualified_quality_phred", 15),
+        length_required = config.get("fastp", {}).get("length_required", 100)
+    threads: config.get("fastp", {}).get("threads", 2)
     conda: "../envs/fastp.yaml"
     shell:
         r"""
@@ -86,7 +86,7 @@ rule extract_unmapped_fastq:
 
     log:
         f"{LOG_DIR}/bedtools/{{sample}}.log"
-    threads: config["extract_unmapped_fastq"].get("threads", 24)
+    threads: config.get("extract_unmapped_fastq", {}).get("threads", 4)
     conda:
         "../envs/bedtools.yaml"
     shell:

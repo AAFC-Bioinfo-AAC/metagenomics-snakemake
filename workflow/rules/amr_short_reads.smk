@@ -81,7 +81,7 @@ rule rgi_bwt:
         outprefix = lambda wc: f"{CARD_RGI_OUTPUT_DIR}/{wc.sample}/{wc.sample}_paired"
     log:
         f"{LOG_DIR}/rgi/bwt_{{sample}}.log"
-    threads: config["rgi_bwt"].get("threads", 4)
+    threads: config.get("rgi_bwt", {}).get("threads", 4)
     conda:
         "../envs/rgi.yaml"
     shell:
