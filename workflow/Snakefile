@@ -75,11 +75,14 @@ if not (os.path.exists(f"{RGI_CARD}/card.json")
 READS_DIR = os.path.join(PROJECT_ROOT, config["reads_dir"])
 TRIMMED_DIR = os.path.join(TMPDIR, config["reads_trimmed"])
 HOST_DEP_DIR = os.path.join(PROJECT_ROOT, config["reads_host_dep"])
+MERGED_R1_R2 = os.path.join(PROJECT_ROOT, config["merged_reads"])
 
 KRAKEN_OUTPUT_DIR = os.path.join(PROJECT_ROOT, config["kraken_short_reads_dir"])
 BRACKEN_OUTPUT_DIR = os.path.join(PROJECT_ROOT, config["bracken_short_reads_dir"])
 
 CARD_RGI_OUTPUT_DIR = os.path.join(PROJECT_ROOT, config["amr_screening_dir"])
+
+KEGG_OUTPUT_DIR = os.path.join(PROJECT_ROOT, config["kegg_output_dir"])
 
 LOG_DIR = os.path.join(PROJECT_ROOT, config["log_files"])
 BOWTIE_INDEX = os.path.join(PROJECT_ROOT, config["bowtie2_index"])
@@ -94,6 +97,9 @@ BOWTIE_INDEX_FILES = [
 
 TAXONOMY_DB = config["gtbd_DB"]
 
+KEGG_DIAMOND = os.path.join(PROJECT_ROOT, config["kegg_diamond_DB"])
+KEGG_KO = config["ko_lists"]
+KEGG_BRITE_HIERARCHY = os.path.join(PROJECT_ROOT, config["kegg_brite_hierarchy"])
 
 ## SAMPLES 
 SAMPLESHEET_PATH = os.path.join(CONFIG_DIR, config["samplesheet"])
@@ -114,6 +120,7 @@ SAMPLE_NAMES = list(SAMPLES.keys())
 include: "rules/preprocessing.smk"
 include: "rules/taxonomy.smk"
 include: "rules/amr_short_reads.smk"
+include: "rules/kegg.smk"
 
 ## Rule outputs files ##
 rule all:
@@ -151,8 +158,17 @@ rule all:
         f"{BRACKEN_OUTPUT_DIR}/bracken_phylum_rel_abundance_default.csv",
         f"{BRACKEN_OUTPUT_DIR}/bracken_phylum_rel_abundance_adjusted.csv"
         # AMR screening with RGI BWT
-        #expand(f"{CARD_RGI_OUTPUT_DIR}/{{sample}}/{{sample}}_paired.allele_mapping_data.txt", sample=SAMPLES),
-
+        expand(f"{CARD_RGI_OUTPUT_DIR}/{{sample}}/{{sample}}_paired.allele_mapping_data.txt", sample=SAMPLES),
+        #KEGG and MinPath
+        expand(f"{MERGED_R1_R2}/{{sample}}_merged.fastq.gz", sample=SAMPLES),
+        expand(f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_diamond_output.m8", sample=SAMPLES),
+        expand(f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_read_count.txt", sample=SAMPLES),
+        expand(f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_gene_ko_abundance.tsv", sample=SAMPLES),
+        expand(f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_ko_list_raw.txt", sample=SAMPLES),
+        expand(f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_ko_list_fixed.txt", sample=SAMPLES),
+        expand(f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_minpath_output.txt", sample=SAMPLES),
+        expand(f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_aggregated_minpath.tsv", sample=SAMPLES),
+        expand(f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_ko_pathway_abundance_with_category.tsv", sample=SAMPLES),
         # Required logs or done markers
         #f"{LOG_DIR}/rgi_reload_db.done",
         #f"{LOG_DIR}/rgi_symlink.done"

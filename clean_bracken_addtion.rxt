@@ -1,0 +1,14 @@
+Looking for .env at: /gpfs/fs7/aafc/projects/J-003518_afc_rdar_malate/code/metagenomics-snakemake/.env
+Loaded PROJECT_ROOT: /gpfs/fs7/aafc/projects/J-003518_afc_rdar_malate
+DEBUG: Using TMPDIR = /gpfs/fs7/aafc/scratch/kjg000/tmpdir/malate
+host: inter-aafc-ubuntu2204.science.gc.ca
+Building DAG of jobs...
+IncompleteFilesException:
+The files below seem to be incomplete. If you are sure that certain files are not incomplete, mark them as complete with
+
+    snakemake --cleanup-metadata <filenames>
+
+To re-generate the files rerun your command with the --rerun-incomplete flag.
+Incomplete files:
+/gpfs/fs7/aafc/projects/J-003518_afc_rdar_malate/workspace/amr_screening/H5CK2100RP2D00/H5CK2100RP2D00_paired.sorted.length_100.bam
+/gpfs/fs7/aafc/projects/J-003518_afc_rdar_malate/workspace/amr_screening/H5CK2713RP5D00/H5CK2713RP5D00_paired.sorted.length_100.bam

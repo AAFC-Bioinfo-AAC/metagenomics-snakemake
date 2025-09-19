@@ -19,6 +19,7 @@ default-resources:
   - slurm_account=aafc_aac
   - slurm_partition=standard
   - slurm_cluster=gpsc8
+  - slurm_qos=low    #If jobs are held in queue for long.
   - runtime=60       # minutes
   - mem_mb=4000
   - cpus=1
@@ -122,4 +123,52 @@ set-resources:
     runtime: 90
     slurm_partition: large
     slurm_account: aafc_aac__large
+    slurm_cluster: gpsc8
+
+  merge_read_pairs:
+    cpus: 1
+    mem_mb: 500
+    runtime: 160
+    slurm_partition: standard
+    slurm_account: aafc_aac
+    slurm_cluster: gpsc8
+
+  kegg_diamond:
+    cpus: 8
+    mem_mb: 64000
+    runtime: 7600
+    slurm_partition: standard
+    slurm_account: aafc_aac
+    slurm_cluster: gpsc8
+
+  count_reads:
+    cpus: 1
+    mem_mb: 500
+    runtime: 30
+    slurm_partition: standard
+    slurm_account: aafc_aac
+    slurm_cluster: gpsc8
+
+  gene_ko_abundance:
+    cpus: 1
+    mem_mb: 8000
+    runtime: 160
+    slurm_partition: standard
+    slurm_account: aafc_aac
+    slurm_cluster: gpsc8
+
+  minpath:
+    cpus: 1
+    mem_mb: 4000
+    runtime: 240
+    slurm_partition: standard
+    slurm_account: aafc_aac
+    slurm_cluster: gpsc8
+
+  aggregate_minpath_pathways:
+    cpus: 1
+    mem_mb: 4000
+    runtime: 160
+    slurm_partition: standard
+    slurm_account: aafc_aac
     slurm_cluster: gpsc8

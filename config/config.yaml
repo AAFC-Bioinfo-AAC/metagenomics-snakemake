@@ -9,9 +9,11 @@ samplesheet: "samplesheet.csv"
 log_files: "code/metagenomics-snakemake/workflow/logs"
 reads_dir: "data/raw/fastq"
 reads_host_dep: "workspace/clean_reads"
+merged_reads: "workspace/merged_reads"
 kraken_short_reads_dir: "workspace/taxonomy_short_reads/kraken2"
 bracken_short_reads_dir: "workspace/taxonomy_short_reads/bracken"
 amr_screening_dir: "workspace/amr_screening"
+kegg_output_dir: "workspace/kegg_analysis"
 # Files relative to TMPDIR
 reads_trimmed: "fastp_trimmed"
 
@@ -24,6 +26,14 @@ card_latest: "/code/metagenomics-snakemake/localDB"
 ### File paths for databases on common drives###
 # Must be absolute paths
 gtbd_DB: "/gpfs/fs7/aafc/projects/J-002259_milk_microbiome_gut/data/reference/databases/Kraken2_GTDB226_plus_host"
+ko_lists: "/gpfs/fs7/aafc/common/reference/kegg/genes/ko"
+
+# File path for user generated DIAMOND KEGG database
+kegg_diamond_DB: "data/reference/databases/KEGG"
+
+# File path for KEGG BRITE hierarchy
+kegg_brite_hierarchy: "code/metagenomics-snakemake/resources"
+
 
 ### Parameters for rules ###
 ## preprocessing.smk
@@ -48,8 +58,11 @@ kraken2:
   threads: 2
   conf_threshold: "0.5"
 bracken:
-  threshold_species: 10
-  threshold_genus: 10
-  threshold_phylum: 10
-  threshold_domain: 0
+  threads: 2
   readlen: 150
+## kegg.smk
+kegg_diamond:
+  threads: 8
+  sensitivity: "--sensitive"  #The sensitivity can be adjusted using the options --faster, --fast, --mid-sensitive, --sensitive, --more-sensitive, --very-sensitive and --ultra-sensitive
+  max-target-seqs: 1 #The maximum number of target sequences per query to report alignments for (default=25). Setting this to -k0 will report all targets for which alignments were found.
+  outfmt: "6 qseqid sseqid slen pident length mismatch gapopen qstart qend sstart send evalue bitscore" #Format of the output file. By default, there are 12 preconfigured fields: qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore 

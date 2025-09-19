@@ -10,105 +10,150 @@ rule merge_read_pairs:
         R2 = f"{HOST_DEP_DIR}/{{sample}}_trimmed_clean_R2.fastq.gz"
     output:
         merged = f"{MERGED_R1_R2}/{{sample}}_merged.fastq.gz"
-    log:
-        f"{LOG_DIR}/{kegg}/kegg_merge.log"
     shell:
         r"""
-
-        mkdir -p "$(dirname {log})"
         mkdir -p "$(dirname {output.merged})"
 
-        "cat {input.R1} {input.R2} > {output.merged}"
-        echo "Merged {input.R1} and {input.R2} into {output.merged}" >> {log}
+        zcat {input.R1} {input.R2} | gzip > {output.merged}
         """
-
-rule: kegg_diamond
+rule kegg_diamond:
     input:
         merged = f"{MERGED_R1_R2}/{{sample}}_merged.fastq.gz",
-        diamond_db = f"{KEGG_DIR}/prokaryotes.pep.dmnd"
-
+        diamond_db = f"{KEGG_DIAMOND}/prokaryotes.pep.dmnd"
     output:
-        diamond = f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_diamond_output.m8"
+        diamond = f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_diamond_output.m8",
+        temp_fastq = temp(f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_tmp.fastq")
     log:
         f"{LOG_DIR}/kegg/{{sample}}_kegg_diamond.log"
     conda:
         "../envs/diamond.yaml"
     params:
-        pigz_threads=4
+        pigz_threads=2,
+        sensitivity=config.get("kegg_diamond", {}).get("sensitivity", "--sensitive"),
+        max_target_num=config.get("kegg_diamond", {}).get("max-target-seqs", 1),
+        out_file_format=config.get("kegg_diamond", {}).get("outfmt", "6 qseqid sseqid slen pident length mismatch gapopen qstart qend sstart send evalue bitscore")
     threads: config.get("kegg_diamond", {}).get("threads", 16)
     shell:
         r"""
         set -euo pipefail
 
+        mkdir -p "$(dirname {log})"
         mkdir -p "$(dirname {output.diamond})"
 
-        # per job temp folder
-        tmpbase="${TMPDIR:-/tmp}"
-        jobtmp="$tmpbase/diamond_{wildcards.sample}_$RANDOM"
-        mkdir -p "$jobtmp" || { echo "Failed to create job tmpdir $jobtmp" >> "{log}"; exit 1; }
-        echo "Using job tmpdir base: $jobtmp" >> "{log}"
-        piz_temp="$jobtmp/piz_tmp"
-        diamond_temp="$jobtmp/diamond_tmp"
-        mkdir -p "$piz_temp" "$diamond_temp"
-
-        cleanup() {
-            if [[ -n "$jobtmp" && -d "$jobtmp" && "$jobtmp" == "$tmpbase"/diamond_* ]]; then
-                rm -rf "$jobtmp"
-            fi
-        }
-        trap cleanup EXIT
-
-        # Set pigz threads from Snakemake param
         pigz_threads={params.pigz_threads}
         diamond_threads=$(( {threads} - pigz_threads ))
-        # Ensure no thread count is 0
-        [ "$diamond_threads" -lt 1 ] && diamond_threads=1
+        [[ "$diamond_threads" -lt 1 ]] && diamond_threads=1
 
-        # Decompress first, then run DIAMOND
-        pigz -dc -p "$pigz_threads" {input.merged} > "$piz_temp/{wildcards.sample}.fastq" 2>> {log} || { echo "Failed to decompress {input.merged}" >> "{log}"; exit 1; }
+        pigz -dc -p "$pigz_threads" {input.merged} > {output.temp_fastq} 2>> {log} || {{ echo "Failed to decompress {input.merged}" >> {log}; exit 1; }}
+
+        tmpbase="${{TMPDIR:-/tmp}}"
+        diamond_tmp="$(mktemp -d "$tmpbase/diamond_{wildcards.sample}_XXXXXX")" || {{ echo "Failed to create DIAMOND temp dir" >> {log}; exit 1; }}
+        echo "Using DIAMOND tmp dir: ${{diamond_tmp}}" >> {log}
+
+        cleanup() {{
+            if [[ -n "${{diamond_tmp:-}}" && -d "${{diamond_tmp}}" ]]; then
+                echo "Cleaning up DIAMOND tmp dir: ${{diamond_tmp}}" >> {log}
+                rm -rf -- "${{diamond_tmp}}"
+            fi
+        }}
+        trap cleanup EXIT
 
         diamond blastx \
-        -d {input.diamond_db} \
-        -q "$piz_temp/{wildcards.sample}.fastq" \
-        -o {output.diamond} \
-        --tmpdir "$diamond_temp" \
-        --sensitive \
-        --max-target-seqs 1 \
-        --outfmt 6 qseqid sseqid slen pident length mismatch gapopen qstart qend sstart send evalue bitscore \
-        --threads "$diamond_threads"
+            -d {input.diamond_db} \
+            -q {output.temp_fastq} \
+            -o {output.diamond} \
+            --tmpdir "$diamond_tmp" \
+            {params.sensitivity} \
+            --max-target-seqs {params.max_target_num} \
+            --outfmt {params.out_file_format} \
+            --threads "$diamond_threads" \
+            2>> {log}
         """
-rule ko_abundance:
-
-rule: kegg_minpath
+rule count_reads:
     input:
-        merged = f"{MERGED_R1_R2}/{{sample}}_merged.fastq.gz",
-        ko_genes_list = KEGG_DIR,
-        ko_pathway_list =KEGG_DIR,
-    
+        merged = f"{MERGED_R1_R2}/{{sample}}_merged.fastq.gz"
     output:
-        diamond = f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_diamond_output.m8",
-        ko = f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_gene_ko_abundance.tsv",
-        ko_list_raw = f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_ko_list_raw.txt",
-        ko_list_fixed = f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_ko_list_fixed.txt",
-        minpath = f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_minpath_output.txt",
-        pathway = f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_ko_pathway_abundance.tsv"
-    log:
-        f"{LOG_DIR}/{kegg}/{{sample}}_kegg_minpath.log"
+        read_count = f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_read_count.txt"
     conda:
-        "../envs/diamond.yaml"
-    scripts:
-        "../scripts/MinPath.py" #need to move in to scripts
-    params:
+        "../envs/python3.yaml"
     shell:
         r"""
-        # read count 
-        read_count=$(zcat {input.merged} | wc -l)
-        read_count=$((read_count/4))
-    
-        # Gene-to-KO Mapping and Abundance
+        set -euo pipefail
 
+        mkdir -p "$(dirname {output.read_count})"
 
-        
-        
+        pigz -dc {input.merged} | wc -l | awk '{{print int($1/4)}}' > {output.read_count}
         """
+rule gene_ko_abundance:
+    input:
+        diamond = f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_diamond_output.m8",
+        read_count = f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_read_count.txt",
+        ko_genes_list = f"{KEGG_KO}/ko_genes.list"
+    output:
+       abundance = f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_gene_ko_abundance.tsv", 
+    log:
+        f"{LOG_DIR}/kegg/{{sample}}_gene_ko_abundance.log"
+    conda:
+        "../envs/python3.yaml"
+    script:
+        "../scripts/gene_ko_abundance.py"
+rule make_ko_lists:
+    input:
+        abundance = f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_gene_ko_abundance.tsv"
+    output:
+        ko_list_raw = f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_ko_list_raw.txt",
+        ko_list_fixed = f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_ko_list_fixed.txt"
+    log:
+        f"{LOG_DIR}/kegg/{{sample}}_make_ko_lists.log"
+    conda:
+        "../envs/python3.yaml"
+    script:
+        "../scripts/make_ko_lists.py"
+rule minpath:
+    input:
+        ko_list_fixed = f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_ko_list_fixed.txt"
+    output:
+        minpath_out= f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_minpath_output.txt"
+    log:
+        f"{LOG_DIR}/kegg/{{sample}}_minpath.log"
+    conda:
+        "../envs/minpath.yaml"
+    params:
+        minpath_script = "workflow/scripts/MinPath/MinPath.py"
+
+    shell:
+        r"""
+        echo "MinPath version is 1.6" >> {log}
+        if [[ ! -s {input.ko_list_fixed} ]]; then
+            echo "[`date '+%Y-%m-%d %H:%M:%S'`] KO list is empty for {wildcards.sample}. Skipping MinPath." | tee -a {log}
+            touch {output.minpath_out}
+        else
+            python {params.minpath_script} -ko {input.ko_list_fixed} -report {output.minpath_out} &>> {log}
+        fi
+        """
+rule aggregate_minpath_pathways:
+    input:
+        minpath_out= f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_minpath_output.txt",
+        abundance = f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_gene_ko_abundance.tsv",
+        ko_pathway_list = f"{KEGG_KO}/ko_pathway.list"
+    output:
+        minpath_table= f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_aggregated_minpath.tsv"
+    log:
+        f"{LOG_DIR}/kegg/{{sample}}_aggregate_minpath.log"
+    conda:
+        "../envs/python3.yaml"
+    script:
+        "../scripts/aggregate_minpath_pathways.py"
+rule kegg_category_mapping:
+    input:
+        minpath_table = f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_aggregated_minpath.tsv",
+        BRITE_hierarchy = f"{KEGG_BRITE_HIERARCHY}/ko00001.keg"
+    output:
+        f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_ko_pathway_abundance_with_category.tsv"
+    log:
+        f"{LOG_DIR}/kegg/{{sample}}_kegg_category_mapping.log"
+    conda:
+        "../envs/python3.yaml"
+    script:
+        "../scripts/kegg_category_summary.py"
 
