@@ -156,7 +156,7 @@ rule all:
         f"{BRACKEN_OUTPUT_DIR}/bracken_genus_rel_abundance_adjusted.csv",
         f"{BRACKEN_OUTPUT_DIR}/bracken_phylum_raw_abundance.csv",
         f"{BRACKEN_OUTPUT_DIR}/bracken_phylum_rel_abundance_default.csv",
-        f"{BRACKEN_OUTPUT_DIR}/bracken_phylum_rel_abundance_adjusted.csv"
+        f"{BRACKEN_OUTPUT_DIR}/bracken_phylum_rel_abundance_adjusted.csv",
         # AMR screening with RGI BWT
         expand(f"{CARD_RGI_OUTPUT_DIR}/{{sample}}/{{sample}}_paired.allele_mapping_data.txt", sample=SAMPLES),
         #KEGG and MinPath

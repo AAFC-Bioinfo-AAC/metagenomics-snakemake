@@ -29,7 +29,7 @@ rule kegg_diamond:
         "../envs/diamond.yaml"
     params:
         pigz_threads=2,
-        sensitivity=config.get("kegg_diamond", {}).get("sensitivity", "--sensitive"),
+        sensitivity=config.get("kegg_diamond", {}).get("sensitivity", ""), #default is not setting sensitivity, and default is designed for finding hits of >60% identity and short read alignment. Its sensitivity is between --fast and --mid-sensitive
         max_target_num=config.get("kegg_diamond", {}).get("max-target-seqs", 1),
         out_file_format=config.get("kegg_diamond", {}).get("outfmt", "6 qseqid sseqid slen pident length mismatch gapopen qstart qend sstart send evalue bitscore")
     threads: config.get("kegg_diamond", {}).get("threads", 16)

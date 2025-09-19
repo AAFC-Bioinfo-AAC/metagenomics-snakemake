@@ -63,6 +63,6 @@ bracken:
 ## kegg.smk
 kegg_diamond:
   threads: 8
-  sensitivity: "--sensitive"  #The sensitivity can be adjusted using the options --faster, --fast, --mid-sensitive, --sensitive, --more-sensitive, --very-sensitive and --ultra-sensitive
+  sensitivity: "--mid-sensitive"  #The sensitivity can be adjusted using the options --faster, --fast, --mid-sensitive, --sensitive, --more-sensitive, --very-sensitive and --ultra-sensitive. Without using any sensitivity option, the default mode will run which is designed for finding hits of >60% identity and short read alignment. Its sensitivity is between --fast and --mid-sensitive
   max-target-seqs: 1 #The maximum number of target sequences per query to report alignments for (default=25). Setting this to -k0 will report all targets for which alignments were found.
   outfmt: "6 qseqid sseqid slen pident length mismatch gapopen qstart qend sstart send evalue bitscore" #Format of the output file. By default, there are 12 preconfigured fields: qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore 
