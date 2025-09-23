@@ -172,3 +172,11 @@ set-resources:
     slurm_partition: standard
     slurm_account: aafc_aac
     slurm_cluster: gpsc8
+
+  megahit_assembly:
+    cpus: 16
+    mem_mb: 128000
+    runtime: 2160
+    slurm_partition: standard
+    slurm_account: aafc_aac
+    slurm_cluster: gpsc8 

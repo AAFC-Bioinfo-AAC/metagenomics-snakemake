@@ -84,6 +84,8 @@ CARD_RGI_OUTPUT_DIR = os.path.join(PROJECT_ROOT, config["amr_screening_dir"])
 
 KEGG_OUTPUT_DIR = os.path.join(PROJECT_ROOT, config["kegg_output_dir"])
 
+SAMPLE_ASSEMBLY = os.path.join(PROJECT_ROOT, config["mag_output_dir"])
+
 LOG_DIR = os.path.join(PROJECT_ROOT, config["log_files"])
 BOWTIE_INDEX = os.path.join(PROJECT_ROOT, config["bowtie2_index"])
 BOWTIE_INDEX_FILES = [
@@ -121,6 +123,7 @@ include: "rules/preprocessing.smk"
 include: "rules/taxonomy.smk"
 include: "rules/amr_short_reads.smk"
 include: "rules/kegg.smk"
+include: "rules/mag.smk"
 
 ## Rule outputs files ##
 rule all:
@@ -169,6 +172,8 @@ rule all:
         expand(f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_minpath_output.txt", sample=SAMPLES),
         expand(f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_aggregated_minpath.tsv", sample=SAMPLES),
         expand(f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_ko_pathway_abundance_with_category.tsv", sample=SAMPLES),
+        # Individual assemblies with MEGAHIT
+        expand(f"{SAMPLE_ASSEMBLY}/{{sample}}_assembly.contigs.fa", sample=SAMPLES),
         # Required logs or done markers
         #f"{LOG_DIR}/rgi_reload_db.done",
         #f"{LOG_DIR}/rgi_symlink.done"

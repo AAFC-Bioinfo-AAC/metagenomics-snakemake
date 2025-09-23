@@ -14,6 +14,7 @@ kraken_short_reads_dir: "workspace/taxonomy_short_reads/kraken2"
 bracken_short_reads_dir: "workspace/taxonomy_short_reads/bracken"
 amr_screening_dir: "workspace/amr_screening"
 kegg_output_dir: "workspace/kegg_analysis"
+mag_output_dir: "workspace/individual_assemblies"
 # Files relative to TMPDIR
 reads_trimmed: "fastp_trimmed"
 
@@ -63,6 +64,11 @@ bracken:
 ## kegg.smk
 kegg_diamond:
   threads: 8
-  sensitivity: "--mid-sensitive"  #The sensitivity can be adjusted using the options --faster, --fast, --mid-sensitive, --sensitive, --more-sensitive, --very-sensitive and --ultra-sensitive. Without using any sensitivity option, the default mode will run which is designed for finding hits of >60% identity and short read alignment. Its sensitivity is between --fast and --mid-sensitive
+  sensitivity: "--fast"  #The sensitivity can be adjusted using the options --faster, --fast, --mid-sensitive, --sensitive, --more-sensitive, --very-sensitive and --ultra-sensitive. Without using any sensitivity option, the default mode will run which is designed for finding hits of >60% identity and short read alignment. Its sensitivity is between --fast and --mid-sensitive
   max-target-seqs: 1 #The maximum number of target sequences per query to report alignments for (default=25). Setting this to -k0 will report all targets for which alignments were found.
   outfmt: "6 qseqid sseqid slen pident length mismatch gapopen qstart qend sstart send evalue bitscore" #Format of the output file. By default, there are 12 preconfigured fields: qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore 
+## mag.smk
+megahit:
+  threads: 16
+  min_contig_len: 1000
+  out_prefix: "final"
