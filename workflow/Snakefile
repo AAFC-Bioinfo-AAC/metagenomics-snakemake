@@ -202,6 +202,9 @@ rule all:
         # Individual assemblies with MEGAHIT
         expand(f"{SAMPLE_ASSEMBLY}/{{sample}}_assembly.contigs.fa", sample=SAMPLES),
         expand(f"{SAMPLE_ASSEMBLY}/{{sample}}.bam", sample=SAMPLES),
+        expand(f"{SAMPLE_ASSEMBLY}/metabat2/{{sample}}/{{sample}}_depth.txt", sample=SAMPLES),
+        expand(f"{SAMPLE_ASSEMBLY}/metabat2/{{sample}}/bins", sample=SAMPLES),
+        expand(f"{SAMPLE_ASSEMBLY}/metabat2/{{sample}}/unbinned", sample=SAMPLES),
 
         # Bowtie2 indices for non-empty assemblies only
         get_all_bowtie2_indices

@@ -143,7 +143,80 @@ rule map_reads_to_assembly:
         | samtools sort -m {params.max_mem_per_thread} --threads $t_sort \
             -O BAM -o {output.bam} - 2>> {log}
         """
+rule sample_depth_file:
+    input:
+        bam = f"{SAMPLE_ASSEMBLY}/{{sample}}.bam"
+    output:
+        depth = f"{SAMPLE_ASSEMBLY}/metabat2/{{sample}}/{{sample}}_depth.txt"
+    log:
+        f"{LOG_DIR}/individual_assemblies/{{sample}}_depth.log"
+    conda:
+        "../envs/metabat2.yaml"
+    shell:
+        r"""
+        set -euo pipefail
+        mkdir -p "$(dirname {output.depth})"
+        jgi_summarize_bam_contig_depths --outputDepth {output.depth} {input.bam} 2>> {log}
+        """
+rule metabat2_binning:
+    input:
+        assembly = f"{SAMPLE_ASSEMBLY}/{{sample}}_assembly.contigs.fa",
+        depth    = f"{SAMPLE_ASSEMBLY}/metabat2/{{sample}}/{{sample}}_depth.txt"
+    output:
+        bins_dir     = directory(f"{SAMPLE_ASSEMBLY}/metabat2/{{sample}}/bins"),
+        unbinned_dir = directory(f"{SAMPLE_ASSEMBLY}/metabat2/{{sample}}/unbinned")
+    log:
+        f"{LOG_DIR}/individual_assemblies/{{sample}}_metabat2.log"
+    conda:
+        "../envs/metabat2.yaml"
+    threads: config.get("metabat2", {}).get("threads", 8)
+    params:
+        min_contig_length = config.get("metabat2", {}).get("min_contig_length", 2000)
+    shell:
+        r"""
+        set -euo pipefail
+        
+        tmpbase="${{TMPDIR:-/tmp}}"
+        metabat2_dir="$(mktemp -d "$tmpbase/metabat2_{wildcards.sample}_XXXXXX")" || {{
+            echo "Failed to create metabat2 dir" >> {log}; exit 1;
+        }}
+        echo "Using metabat2 dir: ${{metabat2_dir}}" >> {log}
 
+        cleanup() {{
+            if [[ -n "${{metabat2_dir:-}}" && -d "${{metabat2_dir}}" ]]; then
+                echo "Cleaning up metabat2 dir: ${{metabat2_dir}}" >> {log}
+                rm -rf -- "${{metabat2_dir}}"
+            fi
+        }}
+        trap cleanup EXIT
+
+        # Run MetaBAT2 in scratch
+        metabat2 --inFile {input.assembly} \
+            --outFile "${{metabat2_dir}}/{wildcards.sample}.bin" \
+            --abdFile {input.depth} \
+            --numThreads {threads} \
+            --minContig {params.min_contig_length} \
+            --unbinned 2>> {log}
+
+        # Ensure destination dirs exist
+        mkdir -p "{output.bins_dir}" "{output.unbinned_dir}"
+
+        # Copy binned FASTAs and their BinInfo.txt files, preserving timestamps
+        for f in "${{metabat2_dir}}/{wildcards.sample}.bin."*[0-9].fa; do
+            [[ -f "$f" ]] && cp --preserve=mode,timestamps "$f" "{output.bins_dir}/"
+        done
+        # Copy the single BinInfo summary file
+        if [[ -f "${{metabat2_dir}}/{wildcards.sample}.bin.BinInfo.txt" ]]; then
+            cp --preserve=mode,timestamps "${{metabat2_dir}}/{wildcards.sample}.bin.BinInfo.txt" "{output.bins_dir}/"
+        fi
+
+         # Copy special bins (tooShort, lowDepth, unbinned)
+        for f in "${{metabat2_dir}}/{wildcards.sample}.bin."{{tooShort,lowDepth,unbinned}}.fa; do
+            [[ -f "$f" ]] && cp --preserve=mode,timestamps "$f" "{output.unbinned_dir}/"
+        done
+
+        echo "MetaBAT2 outputs copied to {output.bins_dir} and {output.unbinned_dir}" >> {log}
+        """
 
 
 

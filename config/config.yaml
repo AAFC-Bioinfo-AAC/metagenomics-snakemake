@@ -76,4 +76,7 @@ index_assembly:
   threads: 8
 map_reads_to_assembly:
   threads: 8
-  max_mem_per_thread: "4G" 
+  max_mem_per_thread: "4G"
+metabat2_binning:
+  threads: 6
+  min_contig_length: 2500 

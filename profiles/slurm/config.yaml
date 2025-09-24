@@ -192,7 +192,23 @@ set-resources:
   map_reads_to_assembly:
     cpus: 16
     mem_mb: 32000
-    runtime: 240
+    runtime: 30
+    slurm_partition: standard
+    slurm_account: aafc_aac
+    slurm_cluster: gpsc8
+
+  sample_depth_file:
+    cpus: 1
+    mem_mb: 4000
+    runtime: 30
+    slurm_partition: standard
+    slurm_account: aafc_aac
+    slurm_cluster: gpsc8
+  
+  metabat2_binning:
+    cpus: 6
+    mem_mb: 4000
+    runtime: 30
     slurm_partition: standard
     slurm_account: aafc_aac
     slurm_cluster: gpsc8
