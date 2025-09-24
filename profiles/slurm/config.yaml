@@ -183,8 +183,16 @@ set-resources:
 
   index_assembly:
     cpus: 8
-    mem_mb: 16000
-    runtime: 120
+    mem_mb: 4000
+    runtime: 30
     slurm_partition: standard
     slurm_account: aafc_aac
     slurm_cluster: gpsc8 
+  
+  map_reads_to_assembly:
+    cpus: 16
+    mem_mb: 32000
+    runtime: 240
+    slurm_partition: standard
+    slurm_account: aafc_aac
+    slurm_cluster: gpsc8

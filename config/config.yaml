@@ -74,3 +74,6 @@ megahit:
   out_prefix: "final"
 index_assembly:
   threads: 8
+map_reads_to_assembly:
+  threads: 8
+  max_mem_per_thread: "4G" 

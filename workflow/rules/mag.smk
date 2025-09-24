@@ -106,6 +106,46 @@ rule index_assembly:
         set -euo pipefail
         bowtie2-build --threads {threads} --quiet {input.assembly} {params.index_base} >> {log} 2>&1
         """
+rule map_reads_to_assembly:
+    input:
+        index = expand(
+            f"{SAMPLE_ASSEMBLY}/{{sample}}_assembly.bt2.{{suffix}}",
+            sample=["{sample}"],
+            suffix=["1.bt2", "2.bt2", "3.bt2", "4.bt2", "rev.1.bt2", "rev.2.bt2"]
+        ),
+        R1 = f"{HOST_DEP_DIR}/{{sample}}_trimmed_clean_R1.fastq.gz",
+        R2 = f"{HOST_DEP_DIR}/{{sample}}_trimmed_clean_R2.fastq.gz"
+    output:
+        bam = f"{SAMPLE_ASSEMBLY}/{{sample}}.bam"
+    log:
+        f"{LOG_DIR}/individual_assemblies/{{sample}}_bowtie2_mapping.log"
+    conda:
+        "../envs/bowtie2.yaml"
+    threads: config.get("map_reads", {}).get("threads", 16)
+    params:
+        index_base = lambda wildcards: f"{SAMPLE_ASSEMBLY}/{wildcards.sample}_assembly.bt2",
+        max_mem_per_thread = config.get("map_reads", {}).get("max_mem_per_thread", "4G")
+    shell:
+        r"""
+        set -euo pipefail
+
+        # 80/20 split (rounded)
+        t_bowtie2=$(( ({threads} * 80) / 100 ))
+        t_sort=$(( {threads} - t_bowtie2 ))
+
+        [ $t_bowtie2 -lt 1 ] && t_bowtie2=1
+        [ $t_sort -lt 1 ] && t_sort=1
+
+        echo "thread splitting: bowtie2=$t_bowtie2, samtools=$t_sort" >> {log}
+
+        bowtie2 -x {params.index_base} -1 {input.R1} -2 {input.R2} \
+            --threads $t_bowtie2 2>> {log} \
+        | samtools sort -m {params.max_mem_per_thread} --threads $t_sort \
+            -O BAM -o {output.bam} - 2>> {log}
+        """
+
+
+
 
 
 
