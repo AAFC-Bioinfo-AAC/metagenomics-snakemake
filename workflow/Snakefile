@@ -118,6 +118,24 @@ with open(SAMPLESHEET_PATH, newline='') as csvfile:
         }
 SAMPLE_NAMES = list(SAMPLES.keys())
 
+## Helpers
+sys.path.append(os.path.join(os.path.dirname(__file__), "scripts"))
+
+from scripts.helpers import bowtie2_index_files, parse_filtered_samples
+
+def get_filtered_samples(wildcards):
+    ckpt_output = checkpoints.filter_nonempty_assemblies.get(**wildcards).output[0]
+    return parse_filtered_samples(ckpt_output)
+
+def get_filtered_list_file(wildcards):
+    return checkpoints.filter_nonempty_assemblies.get(**wildcards).output[0]
+
+def get_all_bowtie2_indices(wildcards):
+    return [
+        f for s in get_filtered_samples(wildcards)
+        for f in bowtie2_index_files(s, SAMPLE_ASSEMBLY)
+    ]
+
 ## Snakemake modules to include ##
 include: "rules/preprocessing.smk"
 include: "rules/taxonomy.smk"
@@ -128,13 +146,18 @@ include: "rules/mag.smk"
 ## Rule outputs files ##
 rule all:
     input:
-        #Reads depleted of host and PhiX
+        # Ensure checkpoint runs first
+        get_filtered_list_file,
+
+        # Reads depleted of host and PhiX
         expand(f"{HOST_DEP_DIR}/{{sample}}_trimmed_clean_R1.fastq.gz", sample=SAMPLES),
         expand(f"{HOST_DEP_DIR}/{{sample}}_trimmed_clean_R2.fastq.gz", sample=SAMPLES),
-        #Taxonomy with Kraken
+
+        # Taxonomy with Kraken
         expand(f"{KRAKEN_OUTPUT_DIR}/{{sample}}.report.txt", sample=SAMPLES),
         expand(f"{KRAKEN_OUTPUT_DIR}/{{sample}}.kraken", sample=SAMPLES),
-        #Taxonomy with Bracken
+
+        # Taxonomy with Bracken
         expand(f"{BRACKEN_OUTPUT_DIR}/species/{{sample}}_bracken.species.report.txt", sample=SAMPLES),
         expand(f"{BRACKEN_OUTPUT_DIR}/genus/{{sample}}_bracken.genus.report.txt", sample=SAMPLES),
         expand(f"{BRACKEN_OUTPUT_DIR}/phylum/{{sample}}_bracken.phylum.report.txt", sample=SAMPLES),
@@ -150,6 +173,7 @@ rule all:
         f"{BRACKEN_OUTPUT_DIR}/bracken_cleaned_adjusted_species.txt",
         f"{BRACKEN_OUTPUT_DIR}/bracken_cleaned_adjusted_genus.txt",
         f"{BRACKEN_OUTPUT_DIR}/bracken_cleaned_adjusted_phylum.txt",
+
         # Merged/parsed bracken tables
         f"{BRACKEN_OUTPUT_DIR}/bracken_species_raw_abundance.csv",
         f"{BRACKEN_OUTPUT_DIR}/bracken_species_rel_abundance_default.csv",
@@ -160,9 +184,11 @@ rule all:
         f"{BRACKEN_OUTPUT_DIR}/bracken_phylum_raw_abundance.csv",
         f"{BRACKEN_OUTPUT_DIR}/bracken_phylum_rel_abundance_default.csv",
         f"{BRACKEN_OUTPUT_DIR}/bracken_phylum_rel_abundance_adjusted.csv",
+
         # AMR screening with RGI BWT
         expand(f"{CARD_RGI_OUTPUT_DIR}/{{sample}}/{{sample}}_paired.allele_mapping_data.txt", sample=SAMPLES),
-        #KEGG and MinPath
+
+        # KEGG and MinPath
         expand(f"{MERGED_R1_R2}/{{sample}}_merged.fastq.gz", sample=SAMPLES),
         expand(f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_diamond_output.m8", sample=SAMPLES),
         expand(f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_read_count.txt", sample=SAMPLES),
@@ -172,8 +198,12 @@ rule all:
         expand(f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_minpath_output.txt", sample=SAMPLES),
         expand(f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_aggregated_minpath.tsv", sample=SAMPLES),
         expand(f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_ko_pathway_abundance_with_category.tsv", sample=SAMPLES),
+
         # Individual assemblies with MEGAHIT
         expand(f"{SAMPLE_ASSEMBLY}/{{sample}}_assembly.contigs.fa", sample=SAMPLES),
+
+        # Bowtie2 indices for non-empty assemblies only
+        get_all_bowtie2_indices
         # Required logs or done markers
         #f"{LOG_DIR}/rgi_reload_db.done",
         #f"{LOG_DIR}/rgi_symlink.done"

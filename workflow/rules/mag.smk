@@ -70,3 +70,43 @@ rule megahit_assembly:
 
         echo "Placed contigs to: $dest" >> {log}
         """
+checkpoint filter_nonempty_assemblies:
+    input:
+        expand(f"{SAMPLE_ASSEMBLY}/{{sample}}_assembly.contigs.fa", sample=SAMPLE_NAMES)
+    output:
+         f"{SAMPLE_ASSEMBLY}/samples_with_contigs.txt"
+    run:
+        import os
+        valid_samples = []
+        for infile in input:
+            if os.path.isfile(infile) and os.path.getsize(infile) > 0:
+                sample = os.path.basename(infile).replace("_assembly.contigs.fa", "")
+                valid_samples.append(sample)
+        with open(output[0], "w") as out:
+            out.write("\n".join(valid_samples) + "\n")
+
+rule index_assembly:
+    input:
+        assembly = f"{SAMPLE_ASSEMBLY}/{{sample}}_assembly.contigs.fa"
+    output:
+        expand(
+            f"{SAMPLE_ASSEMBLY}/{{sample}}_assembly.bt2.{{suffix}}",
+            sample=["{sample}"],
+            suffix=["1.bt2", "2.bt2", "3.bt2", "4.bt2", "rev.1.bt2", "rev.2.bt2"]
+        )
+    log:
+        f"{LOG_DIR}/individual_assemblies/{{sample}}_bowtie2_index.log"
+    conda:
+        "../envs/bowtie2.yaml"
+    threads: config.get("index_assembly", {}).get("threads", 8)
+    params:
+        index_base = lambda wildcards: f"{SAMPLE_ASSEMBLY}/{wildcards.sample}_assembly.bt2"
+    shell:
+        r"""
+        set -euo pipefail
+        bowtie2-build --threads {threads} --quiet {input.assembly} {params.index_base} >> {log} 2>&1
+        """
+
+
+
+        

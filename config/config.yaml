@@ -72,3 +72,5 @@ megahit:
   threads: 16
   min_contig_len: 1000
   out_prefix: "final"
+index_assembly:
+  threads: 8

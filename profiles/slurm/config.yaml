@@ -175,8 +175,16 @@ set-resources:
 
   megahit_assembly:
     cpus: 16
-    mem_mb: 128000
-    runtime: 2160
+    mem_mb: 64000
+    runtime: 600
+    slurm_partition: standard
+    slurm_account: aafc_aac
+    slurm_cluster: gpsc8
+
+  index_assembly:
+    cpus: 8
+    mem_mb: 16000
+    runtime: 120
     slurm_partition: standard
     slurm_account: aafc_aac
     slurm_cluster: gpsc8 
