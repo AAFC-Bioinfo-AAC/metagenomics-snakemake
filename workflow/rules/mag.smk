@@ -51,12 +51,14 @@ rule megahit_assembly:
           --out-dir "$run_dir" --force \
           --out-prefix {params.out_prefix} \
           --tmp-dir "$tmp_dir" \
-          > {log} 2>&1
+          >> {log} 2>&1
 
         # MEGAHIT writes {params.out_prefix}.contigs.fa inside out-dir
         src_contigs="$run_dir/{params.out_prefix}.contigs.fa"
         if [[ ! -s "$src_contigs" ]]; then
-          echo "Expected contigs not found: $src_contigs" >> {log}
+          echo "Expected contigs not found: $src_contigs; creating empty placeholder file" >> {log}
+          : > "{output.assembly}"
+        
           exit 2
         fi
 
