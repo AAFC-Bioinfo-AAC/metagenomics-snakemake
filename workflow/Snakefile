@@ -103,6 +103,8 @@ KEGG_DIAMOND = os.path.join(PROJECT_ROOT, config["kegg_diamond_DB"])
 KEGG_KO = config["ko_lists"]
 KEGG_BRITE_HIERARCHY = os.path.join(PROJECT_ROOT, config["kegg_brite_hierarchy"])
 
+CHECKM2_DB = config["checkm2_DB"]
+
 ## SAMPLES 
 SAMPLESHEET_PATH = os.path.join(CONFIG_DIR, config["samplesheet"])
 
@@ -205,6 +207,8 @@ rule all:
         expand(f"{SAMPLE_ASSEMBLY}/metabat2/{{sample}}/{{sample}}_depth.txt", sample=SAMPLES),
         expand(f"{SAMPLE_ASSEMBLY}/metabat2/{{sample}}/bins", sample=SAMPLES),
         expand(f"{SAMPLE_ASSEMBLY}/metabat2/{{sample}}/unbinned", sample=SAMPLES),
+        expand(f"{SAMPLE_ASSEMBLY}/metabat2/{{sample}}/checkm2/", sample=SAMPLES),
+        expand(f"{SAMPLE_ASSEMBLY}/metabat2/{{sample}}/checkm2/quality_report.tsv", sample=SAMPLES),
 
         # Bowtie2 indices for non-empty assemblies only
         get_all_bowtie2_indices

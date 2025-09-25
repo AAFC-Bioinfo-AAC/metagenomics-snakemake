@@ -217,6 +217,30 @@ rule metabat2_binning:
 
         echo "MetaBAT2 outputs copied to {output.bins_dir} and {output.unbinned_dir}" >> {log}
         """
+rule checkm2_bins:
+    input:
+        bins_dir = f"{SAMPLE_ASSEMBLY}/metabat2/{{sample}}/bins",
+        checkm2_db = f"{CHECKM2_DB}"
+    output:
+        checkm2_dir = directory(f"{SAMPLE_ASSEMBLY}/metabat2/{{sample}}/checkm2/"),
+        checkm2_summary = f"{SAMPLE_ASSEMBLY}/metabat2/{{sample}}/checkm2/quality_report.tsv"
+    log:
+        f"{LOG_DIR}/individual_assemblies/{{sample}}_checkm2.log"
+    conda:
+        "../envs/checkm2.yaml"
+    threads: config.get("checkm2", {}).get("threads", 8)
+    shell:
+        r"""
+        set -euo pipefail
+        mkdir -p "$(dirname {output.checkm2_dir})"
+        checkm2 predict \
+            --threads {threads} \
+            -x fa \
+            --database_path {input.checkm2_db} \
+            --input {input.bins_dir} \
+            --output-directory {output.checkm2_dir} 2>> {log}
+        """
+
 
 
 
