@@ -7,7 +7,6 @@
 #SBATCH --account=aafc_aac
 #SBATCH --mem=2000
 #SBATCH --time=288:00:00
-#SBATCH --qos=low
 
 source /gpfs/fs7/aafc/common/miniforge/miniforge3/etc/profile.d/conda.sh
 

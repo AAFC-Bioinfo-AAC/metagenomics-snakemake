@@ -212,11 +212,11 @@ set-resources:
     slurm_partition: standard
     slurm_account: aafc_aac
     slurm_cluster: gpsc8
-    
+
   checkm2:
-    cpus: 8
-    mem_mb: 32000
-    runtime: 240
-    slurm_partition: standard
-    slurm_account: aafc_aac
+    cpus: 4
+    mem_mb: 840000
+    runtime: 600
+    slurm_partition: large
+    slurm_account: aafc_aac__large
     slurm_cluster: gpsc8

@@ -82,4 +82,5 @@ metabat2_binning:
   threads: 6
   min_contig_length: 2500
 checkm2:
-  threads: 8 
+  threads: 4
+  memory_usage: "--lowmem" # --lowmem flag reduces the RAM usage of the DIAMOND annotation step by half.

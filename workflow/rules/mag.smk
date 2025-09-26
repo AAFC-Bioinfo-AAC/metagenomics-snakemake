@@ -228,13 +228,16 @@ rule checkm2_bins:
         f"{LOG_DIR}/individual_assemblies/{{sample}}_checkm2.log"
     conda:
         "../envs/checkm2.yaml"
-    threads: config.get("checkm2", {}).get("threads", 8)
+    threads: config.get("checkm2", {}).get("threads", 4)
+    params:
+        memory_usage=config.get("checkm2", {}).get("memory_usage", "")
     shell:
         r"""
         set -euo pipefail
         mkdir -p "$(dirname {output.checkm2_dir})"
         checkm2 predict \
             --threads {threads} \
+            {params.memory_usage} \
             -x fa \
             --database_path {input.checkm2_db} \
             --input {input.bins_dir} \
