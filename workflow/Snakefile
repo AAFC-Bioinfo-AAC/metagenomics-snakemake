@@ -9,7 +9,7 @@ import glob
 # Use current working directory to find the project root
 PIPELINE_DIR = os.getcwd()
 ENV_FILE = os.path.join(PIPELINE_DIR, '.env')
-print("Looking for .env at:", ENV_FILE)
+#print("Looking for .env at:", ENV_FILE)
 
 # Load the .env file
 load_dotenv(ENV_FILE, override=True)
@@ -18,7 +18,7 @@ load_dotenv(ENV_FILE, override=True)
 PROJECT_ROOT = os.getenv("PROJECT_ROOT")
 if not PROJECT_ROOT:
     raise ValueError("PROJECT_ROOT not set in .env")
-print("Loaded PROJECT_ROOT:", PROJECT_ROOT)
+#print("Loaded PROJECT_ROOT:", PROJECT_ROOT)
 
 ## Compose all other important paths, always relative to PROJECT_ROOT
 DATA_DIR = os.path.join(PROJECT_ROOT, "data")
@@ -35,7 +35,7 @@ fallback_tmpdir = f"/gpfs/fs7/aafc/scratch/{user}/tmpdir/malate"
 # IMPORTANT: Expand shell vars (e.g. $USER) in TMPDIR if they exist
 TMPDIR = os.path.expandvars(os.getenv("TMPDIR", fallback_tmpdir))
 
-print(f"DEBUG: Using TMPDIR = {TMPDIR}")
+#print(f"DEBUG: Using TMPDIR = {TMPDIR}")
 
 os.makedirs(TMPDIR, exist_ok=True)
 
@@ -200,6 +200,8 @@ rule all:
         expand(f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_minpath_output.txt", sample=SAMPLES),
         expand(f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_aggregated_minpath.tsv", sample=SAMPLES),
         expand(f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_ko_pathway_abundance_with_category.tsv", sample=SAMPLES),
+        f"{KEGG_OUTPUT_DIR}/combined_ko_pathway_abundance_with_category.tsv",
+        f"{KEGG_OUTPUT_DIR}/combined_ko_pathway_abundance_with_category_filtered.tsv",
 
         # Individual assemblies with MEGAHIT
         expand(f"{SAMPLE_ASSEMBLY}/{{sample}}_assembly.contigs.fa", sample=SAMPLES),

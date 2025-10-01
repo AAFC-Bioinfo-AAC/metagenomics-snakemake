@@ -18,3 +18,6 @@ config/samplesheet_allsamples.csv.full
 resources/ko00001.keg
 dry_run_kegg.txt
 workflow/scripts/MinPath/
+dag.*
+rulegraph.*
+snakemake_dag.log

@@ -156,4 +156,33 @@ rule kegg_category_mapping:
         "../envs/python3.yaml"
     script:
         "../scripts/kegg_category_summary.py"
+rule kegg_category_sampleID:
+    input:
+        f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_ko_pathway_abundance_with_category.tsv"
+    output:
+        f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_ko_pathway_abundance_with_category_sampleID.tsv"
+    shell:
+        """
+        awk -v id={wildcards.sample} 'BEGIN {{OFS="\\t"}} NR==1 {{print "sampleID", $0; next}} {{print id, $0}}' {input} > {output}
+        """
+rule combine_kegg_category_tables:
+    input:
+        expand(f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_ko_pathway_abundance_with_category_sampleID.tsv", sample=SAMPLES)
+    output:
+        f"{KEGG_OUTPUT_DIR}/combined_ko_pathway_abundance_with_category.tsv"
+    shell:
+        """
+        head -n 1 {input[0]} > {output}
+        tail -q -n +2 {input} >> {output}
+        """ 
+rule filter_combined_kegg_table:
+    input:
+        combined = f"{KEGG_OUTPUT_DIR}/combined_ko_pathway_abundance_with_category.tsv",
+        exclude_list = f"{KEGG_BRITE_HIERARCHY}/KEGG_BRITE_pathway_exclusion_file.txt"
+    output:
+        f"{KEGG_OUTPUT_DIR}/combined_ko_pathway_abundance_with_category_filtered.tsv"
+    conda:
+        "../envs/python3.yaml"
+    script:
+        "../scripts/filter_combined_kegg_table.py"  
 
