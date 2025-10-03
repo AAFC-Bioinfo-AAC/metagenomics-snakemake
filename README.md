@@ -73,32 +73,55 @@ For more info, refer: [Template Repository User Guide](https://github.com/AAFC-B
 ```mermaid
 flowchart TD
 
-    subgraph PREPROC [Pre-processing]
+    subgraph PREPROC ["<b>Pre-processing</b>"]
+        direction TB
         A[Paired Reads] -->|QC & Trim| B[fastp]
         B --> C[Trimmed Reads - temp]
-        B --> L((Fastp QC Report))
+        B --> L1((Fastp QC Report))
         C -->|Host/PhiX Removal| D[Bowtie2]
-        D --> E[Filtered Reads]
+        D --> E((Filtered Reads))
     end
 
-    subgraph QC_REPORTS [Reports]
-        E --> M[Kraken2]
-        M --> N[Bracken]
-        N --> O((Taxonomic Profile))
-
-        E --> W[RGI BWT]
-        W --> Q((AMR Profile))
-
-        E --> R[DIAMOND]
-        R --> S((KEGG Alignment Summary))
-        S --> T[MinPath]
-        T --> U((MinPath Abundance))
-        U --> v((Functional Categories))
+    subgraph MAGS ["<b>Individual assemblies</b>"]
+        direction TB
+        E --> F[MEGAHIT]
+        F --> G((Assembled contigs))
+        G --> I{Checkpoint}
+        I --> |Index assembly and map reads to assembly| J[Bowtie2]
+        J --> |Depth file and binning| K[MetaBAT2]
+        K --> L2((MAGs))
+        L2 --> M[CheckM2]
+        M --> N((Quality Report))
     end
+
+    subgraph QC_REPORTS ["<b>Short Read Reports</b>"]
+        direction TB
+        E --> P[Kraken2]
+        P --> Q[Bracken]
+        Q --> S((Taxonomic Profile))
+
+        E --> W1[RGI BWT]
+        W1 --> Q2((AMR Profile))
+
+        E --> T[DIAMOND]
+        T --> U((KEGG Alignment Summary))
+        U --> V[MinPath]
+        V --> W2((MinPath Abundance))
+        W2 --> X((Functional Categories))
+    end
+
 
     %% TEMP FILE STYLING
     style C fill:#f2f2f2,stroke-dasharray: 5 5
-    style L fill:#f2f2f2,stroke-dasharray: 5 5
+    style L1 fill:#f2f2f2,stroke-dasharray: 5 5
+
+    style PREPROC fill:#f0f8ff,stroke:#4682b4,stroke-width:2px
+    style MAGS fill:#f9f9f9,stroke:#2e8b57,stroke-width:2px
+    style QC_REPORTS fill:#fff8dc,stroke:#d2691e,stroke-width:2px
+
+    %%{init: {"flowchart": {"curve": "basis", "nodeSpacing": 50, "rankSpacing": 80}}}%%
+
+
 ```
 
 ### Snakemake rules
@@ -480,16 +503,19 @@ git clone <repository-url>
 ##### 2.1. SLURM Profile Directory Structure
 
 ```bash
-metatranscriptomics_pipeline/
+metagenomics_pipeline/
 ├── Workflow/
-│   └── Snakefile
+|   └── Rules
+|          └──preprocessing.smk
+|          └── ...
+|   └── Snakefile
 │   └── ... 
+├── config/
+│   └── config.yaml             ← workflow config
+|   └── samples.txt
 ├── profiles/
 │   └── slurm/
 │       └── config.yaml         ← profile config
-├── config/
-│   └── config.yaml             ← workflow data/sample config
-|   └── samples.txt
 ├── run_snakemake.sh            ← your SLURM launcher
 ├── .env
 └── ...                     

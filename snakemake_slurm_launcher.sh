@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=mag_test_run
+#SBATCH --job-name=single_sample_test
 #SBATCH --output=%x_%A_%a.out
 #SBATCH --error=%x_%A_%a.err
 #SBATCH --cluster=gpsc8

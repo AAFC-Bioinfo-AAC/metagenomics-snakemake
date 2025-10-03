@@ -1,126 +1,122 @@
 configfile: "config/config.yaml"
 
 from dotenv import load_dotenv
-import csv
-import os
-import sys
-import glob 
+import csv, os, sys
 
-# Use current working directory to find the project root
+# -------------------------------------------------------------------
+# Environment and project paths
+# -------------------------------------------------------------------
+
 PIPELINE_DIR = os.getcwd()
-ENV_FILE = os.path.join(PIPELINE_DIR, '.env')
-#print("Looking for .env at:", ENV_FILE)
+ENV_FILE = os.path.join(PIPELINE_DIR, ".env")
 
-# Load the .env file
+# Load env file
 load_dotenv(ENV_FILE, override=True)
 
-## PROJECT ROOT FROM .env###
 PROJECT_ROOT = os.getenv("PROJECT_ROOT")
 if not PROJECT_ROOT:
     raise ValueError("PROJECT_ROOT not set in .env")
-#print("Loaded PROJECT_ROOT:", PROJECT_ROOT)
 
-## Compose all other important paths, always relative to PROJECT_ROOT
-DATA_DIR = os.path.join(PROJECT_ROOT, "data")
-WORKSPACE_DIR = os.path.join(PROJECT_ROOT, "workspace")
-CONFIG_DIR = os.path.join(PIPELINE_DIR, "config")
+#DATA_DIR       = os.path.join(PROJECT_ROOT, "data")
+#WORKSPACE_DIR  = os.path.join(PROJECT_ROOT, "workspace")
+CONFIG_DIR     = os.path.join(PIPELINE_DIR, "config")
 
-# Ensure TMPDIR is set, fallback to a default if not
-# Construct fallback path with $USER properly resolved
+# -------------------------------------------------------------------
+# TMPDIR setup
+# -------------------------------------------------------------------
+
 user = os.environ.get("USER")
 if not user:
     raise ValueError("Environment variable USER is not set.")
 
 fallback_tmpdir = f"/gpfs/fs7/aafc/scratch/{user}/tmpdir/malate"
-# IMPORTANT: Expand shell vars (e.g. $USER) in TMPDIR if they exist
 TMPDIR = os.path.expandvars(os.getenv("TMPDIR", fallback_tmpdir))
-
-#print(f"DEBUG: Using TMPDIR = {TMPDIR}")
-
 os.makedirs(TMPDIR, exist_ok=True)
 
-# Ensure RGI_CARD is set, fallback to user CARD DB if no common database is available
+# -------------------------------------------------------------------
+# CARD DB setup
+# -------------------------------------------------------------------
+
+def validate_card_db(path):
+    """Ensure CARD DB has required files."""
+    def has_fasta(p):
+        return (
+            os.path.exists(os.path.join(p, "card_reference.fasta")) or
+            any(name.endswith(".fasta") for name in os.listdir(p))
+        )
+    if not (os.path.exists(os.path.join(path, "card.json")) and has_fasta(path)):
+        sys.exit(
+            f"\nERROR: CARD DB not properly prepared at {path} "
+            "(missing card.json or .fasta). See pipeline README.\n"
+        )
+
 env_rgi_card = os.getenv("RGI_CARD", "").strip()
 if env_rgi_card:
     RGI_CARD = env_rgi_card
 elif "card_latest" in config:
-    # Join with PROJECT_ROOT if a relative path
     cfg_card = config["card_latest"]
     RGI_CARD = os.path.join(PROJECT_ROOT, cfg_card) if not os.path.isabs(cfg_card) else cfg_card
 else:
-    raise ValueError("You must set RGI_CARD in your .env or card_latest in config.yaml!")
+    raise ValueError("You must set RGI_CARD in .env or card_latest in config.yaml!")
 
 if not os.path.exists(RGI_CARD):
-    raise ValueError(f"RGI_CARD path does not exist: {RGI_CARD}")
+    sys.exit(f"\nERROR: RGI_CARD path not found: {RGI_CARD}\n")
 
-# Early exit if RGI CARD database cannot be loaded.
-if not os.path.exists(RGI_CARD):
-    sys.exit(f"\nERROR: RGI_CARD not set or path not found: {RGI_CARD}\nEdit .env or config.yaml.\n")
-# Check specifically for card_reference.fasta
-def has_fasta(path):
-    return (
-        os.path.exists(os.path.join(path, "card_reference.fasta")) or
-        any(name.endswith('.fasta') for name in os.listdir(path))
-    )
+validate_card_db(RGI_CARD)
 
-if not (os.path.exists(f"{RGI_CARD}/card.json")
-        and has_fasta(RGI_CARD)):
-    sys.exit(
-        f"\nERROR: CARD DB not properly prepared at {RGI_CARD} (missing card.json or .fasta).\n"
-        "Please follow manual setup instructions (see pipeline README).\n"
-    )
+# -------------------------------------------------------------------
+# Config-derived paths
+# -------------------------------------------------------------------
 
-## Variable set up
-# Join relative config values with PROJECT_ROOT
-READS_DIR = os.path.join(PROJECT_ROOT, config["reads_dir"])
-TRIMMED_DIR = os.path.join(TMPDIR, config["reads_trimmed"])
-HOST_DEP_DIR = os.path.join(PROJECT_ROOT, config["reads_host_dep"])
-MERGED_R1_R2 = os.path.join(PROJECT_ROOT, config["merged_reads"])
+def relpath(cfg_key):
+    """Resolve a config path relative to PROJECT_ROOT."""
+    return os.path.join(PROJECT_ROOT, config[cfg_key])
 
-KRAKEN_OUTPUT_DIR = os.path.join(PROJECT_ROOT, config["kraken_short_reads_dir"])
-BRACKEN_OUTPUT_DIR = os.path.join(PROJECT_ROOT, config["bracken_short_reads_dir"])
+READS_DIR         = relpath("reads_dir")
+TRIMMED_DIR       = os.path.join(TMPDIR, config["reads_trimmed"])
+HOST_DEP_DIR      = relpath("reads_host_dep")
+MERGED_R1_R2      = relpath("merged_reads")
+KRAKEN_OUTPUT_DIR = relpath("kraken_short_reads_dir")
+BRACKEN_OUTPUT_DIR= relpath("bracken_short_reads_dir")
+CARD_RGI_OUTPUT_DIR= relpath("amr_screening_dir")
+KEGG_OUTPUT_DIR   = relpath("kegg_output_dir")
+SAMPLE_ASSEMBLY   = relpath("mag_output_dir")
+LOG_DIR           = relpath("log_files")
 
-CARD_RGI_OUTPUT_DIR = os.path.join(PROJECT_ROOT, config["amr_screening_dir"])
+BOWTIE_INDEX      = relpath("bowtie2_index")
+BOWTIE_INDEX_FILES= [f"{BOWTIE_INDEX}.{i}.bt2" for i in (1,2,3,4)] + \
+                    [f"{BOWTIE_INDEX}.rev.{i}.bt2" for i in (1,2)]
 
-KEGG_OUTPUT_DIR = os.path.join(PROJECT_ROOT, config["kegg_output_dir"])
+TAXONOMY_DB       = config["gtbd_DB"]
+KEGG_DIAMOND      = relpath("kegg_diamond_DB")
+KEGG_KO           = config["ko_lists"]
+KEGG_BRITE_HIERARCHY = relpath("kegg_brite_hierarchy")
+CHECKM2_DB        = config["checkm2_DB"]
 
-SAMPLE_ASSEMBLY = os.path.join(PROJECT_ROOT, config["mag_output_dir"])
 
-LOG_DIR = os.path.join(PROJECT_ROOT, config["log_files"])
-BOWTIE_INDEX = os.path.join(PROJECT_ROOT, config["bowtie2_index"])
-BOWTIE_INDEX_FILES = [
-    f"{BOWTIE_INDEX}.1.bt2",
-    f"{BOWTIE_INDEX}.2.bt2",
-    f"{BOWTIE_INDEX}.3.bt2",
-    f"{BOWTIE_INDEX}.4.bt2",
-    f"{BOWTIE_INDEX}.rev.1.bt2",
-    f"{BOWTIE_INDEX}.rev.2.bt2"
-]
+# -------------------------------------------------------------------
+# Sample handling
+# -------------------------------------------------------------------
 
-TAXONOMY_DB = config["gtbd_DB"]
-
-KEGG_DIAMOND = os.path.join(PROJECT_ROOT, config["kegg_diamond_DB"])
-KEGG_KO = config["ko_lists"]
-KEGG_BRITE_HIERARCHY = os.path.join(PROJECT_ROOT, config["kegg_brite_hierarchy"])
-
-CHECKM2_DB = config["checkm2_DB"]
-
-## SAMPLES 
 SAMPLESHEET_PATH = os.path.join(CONFIG_DIR, config["samplesheet"])
 
-SAMPLES = dict()
-with open(SAMPLESHEET_PATH, newline='') as csvfile:
-    reader = csv.DictReader(csvfile)
-    for row in reader:
-        fq1 = os.path.join(READS_DIR, row['fastq_1'])  # always resolve relative to reads_dir
-        fq2 = os.path.join(READS_DIR, row['fastq_2'])
-        SAMPLES[row['sample']] = {
-            'fastq_1': fq1,
-            'fastq_2': fq2
-        }
+def load_samples(samplesheet):
+    samples = {}
+    with open(samplesheet, newline="") as csvfile:
+        reader = csv.DictReader(csvfile)
+        for row in reader:
+            samples[row["sample"]] = {
+                "fastq_1": os.path.join(READS_DIR, row["fastq_1"]),
+                "fastq_2": os.path.join(READS_DIR, row["fastq_2"]),
+            }
+    return samples
+
+SAMPLES = load_samples(SAMPLESHEET_PATH)
 SAMPLE_NAMES = list(SAMPLES.keys())
 
-## Helpers
+# -------------------------------------------------------------------
+# Helpers
+# -------------------------------------------------------------------
 sys.path.append(os.path.join(os.path.dirname(__file__), "scripts"))
 
 from scripts.helpers import bowtie2_index_files, parse_filtered_samples
@@ -138,7 +134,9 @@ def get_all_bowtie2_indices(wildcards):
         for f in bowtie2_index_files(s, SAMPLE_ASSEMBLY)
     ]
 
-## Snakemake modules to include ##
+# -------------------------------------------------------------------
+# Rules
+# -------------------------------------------------------------------
 include: "rules/preprocessing.smk"
 include: "rules/taxonomy.smk"
 include: "rules/amr_short_reads.smk"
@@ -213,7 +211,7 @@ rule all:
         expand(f"{SAMPLE_ASSEMBLY}/metabat2/{{sample}}/checkm2/quality_report.tsv", sample=SAMPLES),
 
         # Bowtie2 indices for non-empty assemblies only
-        get_all_bowtie2_indices
+        get_all_bowtie2_indices,
         # Required logs or done markers
-        #f"{LOG_DIR}/rgi_reload_db.done",
-        #f"{LOG_DIR}/rgi_symlink.done"
+        f"{LOG_DIR}/rgi_reload_db.done",
+        f"{LOG_DIR}/rgi_symlink.done"

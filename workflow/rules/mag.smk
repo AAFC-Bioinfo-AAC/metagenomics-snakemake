@@ -90,7 +90,7 @@ rule index_assembly:
         assembly = f"{SAMPLE_ASSEMBLY}/{{sample}}_assembly.contigs.fa"
     output:
         expand(
-            f"{SAMPLE_ASSEMBLY}/{{sample}}_assembly.bt2.{{suffix}}",
+            f"{SAMPLE_ASSEMBLY}/{{sample}}_assembly.{{suffix}}",
             sample=["{sample}"],
             suffix=["1.bt2", "2.bt2", "3.bt2", "4.bt2", "rev.1.bt2", "rev.2.bt2"]
         )
@@ -109,7 +109,7 @@ rule index_assembly:
 rule map_reads_to_assembly:
     input:
         index = expand(
-            f"{SAMPLE_ASSEMBLY}/{{sample}}_assembly.bt2.{{suffix}}",
+            f"{SAMPLE_ASSEMBLY}/{{sample}}_assembly.{{suffix}}",
             sample=["{sample}"],
             suffix=["1.bt2", "2.bt2", "3.bt2", "4.bt2", "rev.1.bt2", "rev.2.bt2"]
         ),
