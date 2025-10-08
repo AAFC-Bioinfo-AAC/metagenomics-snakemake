@@ -100,7 +100,7 @@ rule index_assembly:
         "../envs/bowtie2.yaml"
     threads: config.get("index_assembly", {}).get("threads", 8)
     params:
-        index_base = lambda wildcards: f"{SAMPLE_ASSEMBLY}/{wildcards.sample}_assembly.bt2"
+        index_base = lambda wildcards: f"{SAMPLE_ASSEMBLY}/{wildcards.sample}_assembly"
     shell:
         r"""
         set -euo pipefail
