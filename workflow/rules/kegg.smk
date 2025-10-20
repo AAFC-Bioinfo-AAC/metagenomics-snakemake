@@ -16,6 +16,40 @@ rule merge_read_pairs:
 
         zcat {input.R1} {input.R2} | gzip > {output.merged}
         """
+rule make_kegg_diamond_db:
+    input:
+        prokaryotes_fasta = f"{KEGG_FASTA}/prokaryotes.pep.gz"
+    output:
+        done_kegg_diamond = f"{LOG_DIR}/prokaryotes_db_done.txt",
+        diamond_db = f"{KEGG_DIAMOND}/prokaryotes.pep.dmnd"
+    conda:
+        "../envs/diamond.yaml"
+    threads: config.get("make_kegg_diamond_db", {}).get("threads", 8)
+    shell:
+        r"""
+        DIAMOND_DB="{KEGG_DIAMOND}/prokaryotes.pep.dmnd"
+        KEGG_PROK_FASTA="{input.prokaryotes_fasta}"
+        THREADS={threads}
+        DONE="{output.done_kegg_diamond}"
+
+        mkdir -p $(dirname {output.done_kegg_diamond})
+
+        if [[ ! -f "$DIAMOND_DB" ]]; then
+            echo "DIAMOND database not found. Creating from $KEGG_PROK_FASTA"
+            
+            if [[ ! -f "$KEGG_PROK_FASTA" ]]; then
+                echo "Error: FASTA file not found at $KEGG_PROK_FASTA"
+                exit 1
+            fi
+
+            zcat "$KEGG_PROK_FASTA" | diamond makedb --in - -d "${KEGG_DIAMOND}/prokaryotes.pep" --threads "$THREADS"
+            echo "DIAMOND database created successfully."
+        else
+            echo "DIAMOND database already exists. Skipping creation."
+        fi
+
+        date > "$DONE"
+        """
 rule kegg_diamond:
     input:
         merged = f"{MERGED_R1_R2}/{{sample}}_merged.fastq.gz",
@@ -178,7 +212,7 @@ rule combine_kegg_category_tables:
 rule filter_combined_kegg_table:
     input:
         combined = f"{KEGG_OUTPUT_DIR}/combined_ko_pathway_abundance_with_category.tsv",
-        exclude_list = f"{KEGG_BRITE_HIERARCHY}/KEGG_BRITE_pathway_exclusion_file.txt"
+        exclude_list = f"{KEGG_CUSTOM_LIST}/KEGG_BRITE_pathway_exclusion_file.txt"
     output:
         f"{KEGG_OUTPUT_DIR}/combined_ko_pathway_abundance_with_category_filtered.tsv"
     conda:

@@ -133,6 +133,14 @@ set-resources:
     slurm_account: aafc_aac
     slurm_cluster: gpsc8
 
+  make_kegg_diamond_db:
+    cpus: 8
+    mem_mb: 64000
+    runtime: 7600
+    slurm_partition: standard
+    slurm_account: aafc_aac
+    slurm_cluster: gpsc8
+    
   kegg_diamond:
     cpus: 8
     mem_mb: 64000

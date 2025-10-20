@@ -16,9 +16,7 @@ load_dotenv(ENV_FILE, override=True)
 PROJECT_ROOT = os.getenv("PROJECT_ROOT")
 if not PROJECT_ROOT:
     raise ValueError("PROJECT_ROOT not set in .env")
-
-#DATA_DIR       = os.path.join(PROJECT_ROOT, "data")
-#WORKSPACE_DIR  = os.path.join(PROJECT_ROOT, "workspace")
+## Compose all other important paths, always relative to PROJECT_ROOT
 CONFIG_DIR     = os.path.join(PIPELINE_DIR, "config")
 
 # -------------------------------------------------------------------
@@ -71,7 +69,8 @@ validate_card_db(RGI_CARD)
 def relpath(cfg_key):
     """Resolve a config path relative to PROJECT_ROOT."""
     return os.path.join(PROJECT_ROOT, config[cfg_key])
-
+    
+CONDA_PREFIX = relpath("conda_prefix")
 READS_DIR         = relpath("reads_dir")
 TRIMMED_DIR       = os.path.join(TMPDIR, config["reads_trimmed"])
 HOST_DEP_DIR      = relpath("reads_host_dep")
@@ -82,15 +81,18 @@ CARD_RGI_OUTPUT_DIR= relpath("amr_screening_dir")
 KEGG_OUTPUT_DIR   = relpath("kegg_output_dir")
 SAMPLE_ASSEMBLY   = relpath("mag_output_dir")
 LOG_DIR           = relpath("log_files")
+SOFTWARE_VERSIONS = relpath("software_versions")
+KEGG_DIAMOND      = relpath("kegg_diamond_DB")
+KEGG_CUSTOM_LIST  = relpath("kegg_custom_list")
 
 BOWTIE_INDEX      = relpath("bowtie2_index")
 BOWTIE_INDEX_FILES= [f"{BOWTIE_INDEX}.{i}.bt2" for i in (1,2,3,4)] + \
                     [f"{BOWTIE_INDEX}.rev.{i}.bt2" for i in (1,2)]
 
 TAXONOMY_DB       = config["gtbd_DB"]
-KEGG_DIAMOND      = relpath("kegg_diamond_DB")
 KEGG_KO           = config["ko_lists"]
-KEGG_BRITE_HIERARCHY = relpath("kegg_brite_hierarchy")
+KEGG_FASTA        = config["kegg_fasta"]
+KEGG_BRITE_HIERARCHY = config["kegg_brite_hierarchy"]
 CHECKM2_DB        = config["checkm2_DB"]
 
 
@@ -140,8 +142,9 @@ def get_all_bowtie2_indices(wildcards):
 include: "rules/preprocessing.smk"
 include: "rules/taxonomy.smk"
 include: "rules/amr_short_reads.smk"
-include: "rules/kegg.smk"
+include: "rules/kegg.smk"  #KEGG DATABASE NOT ACCESSIBLE
 include: "rules/mag.smk"
+include: "rules/env_versions.smk"
 
 ## Rule outputs files ##
 rule all:
@@ -212,6 +215,14 @@ rule all:
 
         # Bowtie2 indices for non-empty assemblies only
         get_all_bowtie2_indices,
+
         # Required logs or done markers
         f"{LOG_DIR}/rgi_reload_db.done",
-        f"{LOG_DIR}/rgi_symlink.done"
+        f"{LOG_DIR}/rgi_symlink.done",
+        f"{LOG_DIR}/prokaryotes_db_done.txt",
+
+        # Software versions report
+        f"{SOFTWARE_VERSIONS}/software_versions_summary.txt",
+        f"{SOFTWARE_VERSIONS}/key_bioinformatics_software.txt",
+        f"{SOFTWARE_VERSIONS}/key_bioinformatics_software.html"
+        
