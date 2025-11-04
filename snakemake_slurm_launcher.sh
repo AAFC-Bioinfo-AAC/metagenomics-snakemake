@@ -1,12 +1,12 @@
 #!/bin/bash
-#SBATCH --job-name=single_sample_test
+#SBATCH --job-name=All_samples_2025-10-15
 #SBATCH --output=%x_%A_%a.out
 #SBATCH --error=%x_%A_%a.err
 #SBATCH --cluster=gpsc8
 #SBATCH --partition=standard
 #SBATCH --account=aafc_aac
 #SBATCH --mem=2000
-#SBATCH --time=288:00:00
+#SBATCH --time=336:00:00
 
 source /gpfs/fs7/aafc/common/miniforge/miniforge3/etc/profile.d/conda.sh
 
