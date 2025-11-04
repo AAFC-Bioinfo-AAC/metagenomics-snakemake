@@ -208,7 +208,7 @@ set-resources:
   megahit_assembly:
     cpus: 16
     mem_mb: 64000
-    runtime: 600
+    runtime: 1000
     slurm_partition: standard
     slurm_account: aafc_aac
     slurm_cluster: gpsc8
@@ -239,8 +239,8 @@ set-resources:
   
   metabat2_binning:
     cpus: 6
-    mem_mb: 2000
-    runtime: 15
+    mem_mb: 128000
+    runtime: 240
     slurm_partition: standard
     slurm_account: aafc_aac
     slurm_cluster: gpsc8

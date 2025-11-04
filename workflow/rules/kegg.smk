@@ -22,34 +22,67 @@ rule make_kegg_diamond_db:
     output:
         done_kegg_diamond = f"{LOG_DIR}/prokaryotes_db_done.txt",
         diamond_db = f"{KEGG_DIAMOND}/prokaryotes.pep.dmnd"
+    log: f"{LOG_DIR}/kegg/make_kegg_diamond_db.log"
     conda:
         "../envs/diamond.yaml"
     threads: config.get("make_kegg_diamond_db", {}).get("threads", 8)
     shell:
         r"""
-        DIAMOND_DB="{KEGG_DIAMOND}/prokaryotes.pep.dmnd"
+        set -euo pipefail
+
+        DIAMOND_DB="{output.diamond_db}"
         KEGG_PROK_FASTA="{input.prokaryotes_fasta}"
         THREADS={threads}
         DONE="{output.done_kegg_diamond}"
 
-        mkdir -p $(dirname {output.done_kegg_diamond})
+        # Make sure all parent dirs exist
+        mkdir -p "$(dirname "$DONE")"
+        mkdir -p "$(dirname "$DIAMOND_DB")"
+        mkdir -p "$(dirname "{log}")"
 
         if [[ ! -f "$DIAMOND_DB" ]]; then
-            echo "DIAMOND database not found. Creating from $KEGG_PROK_FASTA"
-            
+            echo "DIAMOND database not found. Creating from $KEGG_PROK_FASTA" >> "{log}"
             if [[ ! -f "$KEGG_PROK_FASTA" ]]; then
-                echo "Error: FASTA file not found at $KEGG_PROK_FASTA"
+                echo "Error: FASTA file not found at $KEGG_PROK_FASTA" >> "{log}"
                 exit 1
             fi
 
-            zcat "$KEGG_PROK_FASTA" | diamond makedb --in - -d "${KEGG_DIAMOND}/prokaryotes.pep" --threads "$THREADS"
-            echo "DIAMOND database created successfully."
+            # Temp prefix in same dir 
+            TMP_PREFIX="${{DIAMOND_DB%.dmnd}}.tmp"
+
+            # Cleanup temp file if anything fails during creation
+            cleanup() {{
+                if [[ -n "${{TMP_PREFIX:-}}" && "${{TMP_PREFIX}}" == *"/KEGG/"* ]]; then
+                    rm -f "${{TMP_PREFIX}}.dmnd"
+                else
+                    echo "Warning: TMP_PREFIX not set safely, skipping cleanup" >> "{log}"
+                fi
+                trap - ERR EXIT SIGINT SIGTERM
+            }}
+            trap cleanup ERR EXIT SIGINT SIGTERM
+
+            #split threads
+            PIGZ_T=$(( THREADS > 2 ? 2 : 1 ))
+            DIAMOND_T=$(( THREADS - PIGZ_T ))
+            if (( DIAMOND_T < 1 )); then DIAMOND_T=1; fi
+
+            #Run makedb
+            pigz -p "$PIGZ_T" -dc "$KEGG_PROK_FASTA" \
+              | diamond makedb --in - -d "$TMP_PREFIX" --threads "$DIAMOND_T" >> "{log}" 2>&1
+
+            # Atomically move into place; then clear traps on success
+            mv -f "${{TMP_PREFIX}}.dmnd" "$DIAMOND_DB"
+            trap - ERR EXIT SIGINT SIGTERM
+
+            echo "DIAMOND database created successfully." >> "{log}"
         else
-            echo "DIAMOND database already exists. Skipping creation."
+            echo "DIAMOND database already exists. Skipping creation." >> "{log}"
         fi
 
-        date > "$DONE"
+        date +"%F %T" >> "$DONE"
+        echo "[$(date)] Wrote done file to $DONE" >> "{log}"
         """
+
 rule kegg_diamond:
     input:
         merged = f"{MERGED_R1_R2}/{{sample}}_merged.fastq.gz",

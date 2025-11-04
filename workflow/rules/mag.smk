@@ -123,7 +123,7 @@ rule map_reads_to_assembly:
         "../envs/bowtie2.yaml"
     threads: config.get("map_reads", {}).get("threads", 16)
     params:
-        index_base = lambda wildcards: f"{SAMPLE_ASSEMBLY}/{wildcards.sample}_assembly.bt2",
+        index_base = lambda wildcards: f"{SAMPLE_ASSEMBLY}/{wildcards.sample}_assembly",
         max_mem_per_thread = config.get("map_reads", {}).get("max_mem_per_thread", "4G")
     shell:
         r"""

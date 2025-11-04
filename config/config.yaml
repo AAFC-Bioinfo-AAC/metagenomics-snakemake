@@ -15,7 +15,7 @@ conda_prefix: "code/malate-smk-conda-env"
 # Directories paths relative to PROJECT_ROOT in .env file
 # -------------------------------------------------------------------
 log_files: "code/metagenomics-snakemake/workflow/logs"
-software_versions: "code/metatranscriptomics-snakemake/results/software_versions"
+software_versions: "code/metagenomics-snakemake/results/software_versions"
 reads_dir: "data/raw/fastq"
 bowtie2_index: "code/metagenomics-snakemake/resources/bowtie2_index/Cow_phiX"
 reads_host_dep: "workspace/clean_reads"

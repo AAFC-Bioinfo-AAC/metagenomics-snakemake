@@ -69,7 +69,8 @@ validate_card_db(RGI_CARD)
 def relpath(cfg_key):
     """Resolve a config path relative to PROJECT_ROOT."""
     return os.path.join(PROJECT_ROOT, config[cfg_key])
-    
+
+#Relative to PROJECT_ROOT    
 CONDA_PREFIX = relpath("conda_prefix")
 READS_DIR         = relpath("reads_dir")
 TRIMMED_DIR       = os.path.join(TMPDIR, config["reads_trimmed"])
@@ -89,12 +90,12 @@ BOWTIE_INDEX      = relpath("bowtie2_index")
 BOWTIE_INDEX_FILES= [f"{BOWTIE_INDEX}.{i}.bt2" for i in (1,2,3,4)] + \
                     [f"{BOWTIE_INDEX}.rev.{i}.bt2" for i in (1,2)]
 
+# Databases absolute paths
 TAXONOMY_DB       = config["gtbd_DB"]
 KEGG_KO           = config["ko_lists"]
 KEGG_FASTA        = config["kegg_fasta"]
 KEGG_BRITE_HIERARCHY = config["kegg_brite_hierarchy"]
 CHECKM2_DB        = config["checkm2_DB"]
-
 
 # -------------------------------------------------------------------
 # Sample handling
