@@ -7,13 +7,15 @@
 
 ## About
 
-*Provide a summary, purpose, and key features of the project.*
+The **metagenomics-snakemake** workflow was designed for paired-end reads from high-biomass, host-associated metagenomic samples that were sequenced on an Illumina platform. The reproducible workflow is modular, allowing modules to be omitted provided cleaned are provided as input. Utilizing the **Snakemake** workflow, the pipeline automates read quality control, filtering, and host/Phix decontamination, as well as downstream modules that obtain biological information from the cleaned reads. The modules provide taxonomic abundance tables, antibiotic resistance profiles, higher order functional pathways, and metagenome-assembled genome (MAG)s assembled from individual samples.
 
-*Example **About**:*
+The pipeline consists of these modules:
 
-This repository serves as a template for creating reproducible and customizable data processing workflows. It is designed to help researchers and developers quickly set up new projects by providing modular and parameterized components that can be easily adapted to different use cases. The template may be customized, adding/removing sections as needed, while maintaining good documentation.
-
-For more info, refer: [Template Repository User Guide](https://github.com/AAFC-Bioinfo-AAC/quick-start-guide/blob/main/docs/template-repo-user-guide.md)
+- **Pre-processing**: *fastp* is used for quality control, trimming, and filtering paired-end reads. Host and PhiX decontamination is performed using *Bowtie2* and *Samtools* by aligning the trimmed reads to the host and PhiX reference genome and retaining only those reads that do not align.
+- **Taxonomy profiling**: *Kraken2* and *Bracken* are used to generate abundance tables classifying the short reads at species, genus, and phylum level across all samples. The *Kraken2*-formatted database includes host taxonomy, and reads classified as host are removed prior to calculating the relative abundance. Instructions for modifying host parameters are provided in the user guide.
+- **Antimicrobial resistance profiling**: *RGI* (Resistance Gene Identifier) is used to map the short reads to *CARD* (Comprehensive Antibiotic Resistance Database). This produces a report containing the potential antibiotic resistance genes for each sample.
+- **Functional pathways**: High-level functional pathways are generated using the *KEGG* (Kyoto Encyclopedia of Genes and Genomes) database. The cleaned paired-end reads are concatenated and aligned to the *KEGG* protein database using *DIAMOND*. Resulting alignments are used to produce a KO (KEGG Orthology) table, which with some formatting, is used as input for *MinPath*. *MinPath* infers the minimum set of pathways required to describe the genes present. Using the *MinPath*-confirmed pathways, the pathways are summarized into high-level categories with the KEGG BRITE hierarchy. For each sample, the abundance of each higher-level pathway is expressed as reads-per-kilobase (RPK) and copies per million (CPM).
+- **MAGs from individual samples**: Each sample is assembled using *MEGAHIT*. The resulting assemblies are indexed, and the reads are mapped back with *Bowtie2* and *Samtools*. *MetaBAT* bins the assembled contigs into putative genomes, which are evaluated for completeness and contamination using *CheckM2*.
 
 ---
 
@@ -32,6 +34,7 @@ For more info, refer: [Template Repository User Guide](https://github.com/AAFC-B
     - [Module  `taxonomy.smk`](#module--taxonomysmk)
     - [Module  `amr_short_reads.smk`](#module--amr_short_readssmk)
     - [Module  `kegg.smk`](#module--keggsmk)
+    - [Module `mag.smk`](#module-magsmk)
   - [Data](#data)
   - [Parameters](#parameters)
   - [Usage](#usage)
@@ -55,6 +58,11 @@ For more info, refer: [Template Repository User Guide](https://github.com/AAFC-B
       - [Current issues](#current-issues)
       - [Resource usage](#resource-usage)
   - [OUTPUT](#output)
+    - [Preprocessing Module (`preprocessing.smk`)](#preprocessing-module-preprocessingsmk)
+    - [Taxonomy Module (`taxonomy.smk`)](#taxonomy-module-taxonomysmk)
+    - [AMR Module (`amr_short_reads.smk`)](#amr-module-amr_short_readssmk)
+    - [KEGG Module (`kegg.smk`)](#kegg-module-keggsmk)
+    - [MAG Module (`mag.smk`)](#mag-module-magsmk)
   - [Credits](#credits)
   - [Contribution](#contribution)
   - [License](#license)
@@ -73,32 +81,55 @@ For more info, refer: [Template Repository User Guide](https://github.com/AAFC-B
 ```mermaid
 flowchart TD
 
-    subgraph PREPROC [Pre-processing]
+    subgraph PREPROC ["<b>Pre-processing</b>"]
+        direction TB
         A[Paired Reads] -->|QC & Trim| B[fastp]
         B --> C[Trimmed Reads - temp]
-        B --> L((Fastp QC Report))
+        B --> L1((Fastp QC Report))
         C -->|Host/PhiX Removal| D[Bowtie2]
-        D --> E[Filtered Reads]
+        D --> E((Filtered Reads))
     end
 
-    subgraph QC_REPORTS [Reports]
-        E --> M[Kraken2]
-        M --> N[Bracken]
-        N --> O((Taxonomic Profile))
-
-        E --> W[RGI BWT]
-        W --> Q((AMR Profile))
-
-        E --> R[DIAMOND]
-        R --> S((KEGG Alignment Summary))
-        S --> T[MinPath]
-        T --> U((MinPath Abundance))
-        U --> v((Functional Categories))
+    subgraph MAGS ["<b>Individual assemblies</b>"]
+        direction TB
+        E --> F[MEGAHIT]
+        F --> G((Assembled contigs))
+        G --> I{Checkpoint}
+        I --> |Index assembly and map reads to assembly| J[Bowtie2]
+        J --> |Depth file and binning| K[MetaBAT2]
+        K --> L2((MAGs))
+        L2 --> M[CheckM2]
+        M --> N((Quality Report))
     end
+
+    subgraph QC_REPORTS ["<b>Short Read Reports</b>"]
+        direction TB
+        E --> P[Kraken2]
+        P --> Q[Bracken]
+        Q --> S((Taxonomic Profile))
+
+        E --> W1[RGI BWT]
+        W1 --> Q2((AMR Profile))
+
+        E --> T[DIAMOND]
+        T --> U((KEGG Alignment Summary))
+        U --> V[MinPath]
+        V --> W2((MinPath Abundance))
+        W2 --> X((Functional Categories))
+    end
+
 
     %% TEMP FILE STYLING
     style C fill:#f2f2f2,stroke-dasharray: 5 5
-    style L fill:#f2f2f2,stroke-dasharray: 5 5
+    style L1 fill:#f2f2f2,stroke-dasharray: 5 5
+
+    style PREPROC fill:#f0f8ff,stroke:#4682b4,stroke-width:2px
+    style MAGS fill:#f9f9f9,stroke:#2e8b57,stroke-width:2px
+    style QC_REPORTS fill:#fff8dc,stroke:#d2691e,stroke-width:2px
+
+    %%{init: {"flowchart": {"curve": "basis", "nodeSpacing": 50, "rankSpacing": 80}}}%%
+
+
 ```
 
 ### Snakemake rules
@@ -111,7 +142,7 @@ The pipeline is modularized, with each module located in the `metatranscriptomic
 
 ### Module `preprocessing.smk`
 
-**`rule fastp_pe` *Quality Control & Trimming***
+**Rule: `fastp_pe` *Quality Control & Trimming***
 
 - **Purpose:** Performs adapter trimming, quality trimming, and filtering of paired-end reads.
 - **Inputs:** `samplesheet.csv` defines sample IDs and corresponding read pairs.
@@ -120,10 +151,10 @@ The pipeline is modularized, with each module located in the `metatranscriptomic
   - Trimmed paired reads: `sample_r1.fastq.gz`, `sample_r2.fastq.gz`
 - **Notes:**
 
-  - Parameters are defined in **`config/config.ymal`** for `fastp`.
+  - Parameters are defined in **`config/config.yaml`** for `fastp`.
   - These files are marked as temporary in the rule: `sample_u1.fastq.gz`, `sample_r2.fastq.gz`,`sample.fastp.html`, and `sample.fastp.json`. If these are required the temporary() flag on the output files in the rule can be removed.
 
-**`rule bowtie2_align` *Alignment to Host/Phix***
+**Rule: `bowtie2_align` *Alignment to Host/Phix***
 
 - **Purpose:** Aligns trimmed reads to a user created reference (Host/PhiX) that has been indexed by Bowtie2 index.
 - **Inputs:**
@@ -138,7 +169,7 @@ The pipeline is modularized, with each module located in the `metatranscriptomic
   - Uses **default parameters** from `Bowtie2`.
   - This file is marked as temporary in the rule: `sample.bam`. If it is required the temporary() flag on the output file in the rule can be removed.
 
-**`rule extract_unmapped_fastq` *Decontamination***
+**Rule: `extract_unmapped_fastq` *Decontamination***
 
 - **Purpose:** extracts the reads that did not align into paired-end FASTQ files depleted of host and PhiX reads.
 - **Inputs:**
@@ -150,7 +181,7 @@ The pipeline is modularized, with each module located in the `metatranscriptomic
 
 ### Module  `taxonomy.smk`
 
-**`rule kraken2` *Assign Taxonomy***
+**Rule: `kraken2` *Assign Taxonomy***
 
 - **Purpose:** Assign taxonomy to the clean reads using a Kraken2-formatted GTDB.
 - **Inputs:**
@@ -160,7 +191,7 @@ The pipeline is modularized, with each module located in the `metatranscriptomic
 - **Notes:**
   - Must use **Large compute node** with at least 600 GB. The custom database used here needed 840 GB.
 
-**`rule bracken` *Abundance Estimation***
+**Rule: `bracken` *Abundance Estimation***
 
 - **Purpose:** Refines Kraken classification to provide abundance estimates at the species, genus and phylum level for each sample.
 - **Inputs:** Kraken report: `sample.report.txt`
@@ -175,7 +206,7 @@ The pipeline is modularized, with each module located in the `metatranscriptomic
   - Domain level file is needed for normalizing the reads at each taxon to the proportion of total prokaryotic reads (bacteria + archaea)
   - This rule is also making `sample.report_bracken_species.txt` at each level in the `kraken2` directory. At some point see if we can either place these into a directory called `reports` or have them cleaned up in the shell block.
 
-**`rule combine_bracken_outputs` *Merging Abundance Tables***
+**Rule: `combine_bracken_outputs` *Merging Abundance Tables***
 
 - **Inputs:**
   - Bracken reports at:
@@ -190,7 +221,7 @@ The pipeline is modularized, with each module located in the `metatranscriptomic
     - Phylum level: `merged_abundance_phylum.txt`
     - Domain level: `merged_abundance_domain.txt`
 
-**`clean_host_bracken` *Remove host taxonomy***
+**Rule: `clean_host_bracken` *Remove host taxonomy***
 
 - **Purpose:** Remove the host taxa from Bracken output files and normalize using the total remaining read counts.
 - **Inputs:**
@@ -208,7 +239,7 @@ The pipeline is modularized, with each module located in the `metatranscriptomic
 - **Notes:**
   - The script `clean_bracken_batch.py` contains the taxa filters that can be edited. Maybe these could be included in the config file so the script doesn't need to be modified.
 
-**`bracken_recompute_fractions` *Relative abundance using only prokaryotic reads***
+**Rule: `bracken_recompute_fractions` *Relative abundance using only prokaryotic reads***
 
 - **Purpose:** Recalculates the relative abundance by using the total prokaryotic reads (bacteria + archaea) from the Bracken domain table.
 - **Inputs:**:
@@ -223,7 +254,7 @@ The pipeline is modularized, with each module located in the `metatranscriptomic
     - Genus level: `bracken_cleaned_adjusted_genus.txt`
     - Phylum level: `bracken_cleaned_adjusted_phylum.txt`
 
-**`rule bracken_extract` *Abundance Tables***
+**Rule: `bracken_extract` *Abundance Tables***
 
 - **Purpose:** Generate tables for the raw counts, bracken default relative abundance and the adjusted relative abundance for each taxonomic level for all samples.
 - **Inputs:**
@@ -243,7 +274,7 @@ The pipeline is modularized, with each module located in the `metatranscriptomic
 
 ### Module  `amr_short_reads.smk`
 
-**`rule rgi_reload_database` *Load CARD DB***
+**Rule: `rgi_reload_database` *Load CARD DB***
 
 - **Purpose:** Checks if the CARD Database has been loaded from a common directory or user specific directory.
 - **Inputs:**
@@ -252,11 +283,11 @@ The pipeline is modularized, with each module located in the `metatranscriptomic
 - **Outputs:**
   - Done marker `rgi_reload_db.done` to prevent the rule from re-running every time the pipeline is called.
 
-**`symlink_rgi_card` *Symlink CARD to the working directory***
+**Rule: `symlink_rgi_card` *Symlink CARD to the working directory***
 
 - **Purpose:** Prevent the re-loading of the CARD DB
 
-**`rule rgi_bwt` *Antimicrobial Resistance Gene Profiling***
+**Rule: `rgi_bwt` *Antimicrobial Resistance Gene Profiling***
 
 - **Purpose:** performs antimicrobial resistance gene profiling on the cleaned reads using *k*-mer alignment (kma).
 - **Inputs:**
@@ -279,7 +310,7 @@ The pipeline is modularized, with each module located in the `metatranscriptomic
 
 ### Module  `kegg.smk`
 
-**`merge_read_pairs` *Concatenate***
+**Rule: `merge_read_pairs` *Concatenate***
 
 - **Purpose:** Concatenate read pairs for each sample.
 - **Inputs:**
@@ -287,7 +318,16 @@ The pipeline is modularized, with each module located in the `metatranscriptomic
 - **Outputs:**
   - Concatenated read pairs: `sample_merged.fastq.gz`
 
-**`kegg_diamond` *DIAMOND Alignment***
+**Rule: `make_kegg_diamond_db` * Format database for DIAMOND***
+
+- **Purpose:** Prepare the prokaryotic gene sequence file from the KEGG database for use with DIAMOND. If the DIAMOND-formatted database file (`prokaryotes.pep.dmnd`) already exists, the rule will skip database creation and only update or create the `prokaryotes_db_done.txt` marker file.
+- **Inputs:**
+  - prokaryotes fasta file from KEGG: `prokaryotes.pep.gz`
+- **Outputs:**
+  - DIAMOND formatted database: `prokaryotes.pep.dmnd` (If there was no DIAMOND formatted database)
+  - Done marker: `prokaryotes_db_done.txt`
+
+**Rule: `kegg_diamond` *DIAMOND Alignment***
 
 - **Purpose:** Provide a tab-delimited text file that summarizes the alignment of sample reads against a DIAMOND formatted KEGG protein database.
 - **Inputs:**
@@ -296,7 +336,7 @@ The pipeline is modularized, with each module located in the `metatranscriptomic
 **Outputs:**
   - DIAMOND alignment file: `sample_diamond_output.m8`
 
-**`count_reads` *Read Count***
+**Rule: `count_reads` *Read Count***
 
 - **Purpose:** Total reads for each concatenated read pairs.
 - **Inputs:**
@@ -304,7 +344,7 @@ The pipeline is modularized, with each module located in the `metatranscriptomic
 **Outputs:**
   - Text file with the read count: `sample_read_count.txt`
 
-**`gene_ko_abundance` *KO-Annotated Abundance Table***
+**Rule: `gene_ko_abundance` *KO-Annotated Abundance Table***
 
 - **Purpose:** Generate a KEGG orthology table with gene counts normalized by reads per kilobase and counts per million.
 - **Inputs:**
@@ -314,16 +354,16 @@ The pipeline is modularized, with each module located in the `metatranscriptomic
 - **Outputs:**
   - Abundance table: `sample_gene_ko_abundance.tsv`
 
-**`make_ko_lists` *Generate KO list for MinPath***
+**Rule: `make_ko_lists` *Generate KO list for MinPath***
 
 - **Purpose:** Generate a KEGG orthology list from the KEGG orthology abundance table and format the list for MinPath.
 - **Inputs:**
-  - Abundance table: `sample__gene_ko_abundance.tsv`
+  - Abundance table: `sample_gene_ko_abundance.tsv`
 - **Outputs:**
   - Raw extracted KEGG orthology ID list: `sample_ko_list_raw.txt`
   - MinPath formatted KEGG orthology ID list: `sample_ko_list_fixed.txt`
 
-**`minpath` *Run MinPath***
+**Rule: `minpath` *Run MinPath***
 
 - **Purpose:** Infer the minimal set of pathway presence to explain the KEGG orthology ID list by running MinPath.
 - **Inputs:**
@@ -340,8 +380,7 @@ The pipeline is modularized, with each module located in the `metatranscriptomic
       chmod +x /abs/path/to/the/snakemake/workflow/scripts/MinPath/glpk-4.6/examples/glpsol
       ```
 
-
-**`aggregate_minpath_pathways` *MinPath Abundance***
+**Rule: `aggregate_minpath_pathways` *MinPath Abundance***
 
 - **Purpose:** For only MinPath confirmed pathways produce a pathway-level abundance table.
 - **Inputs:**
@@ -351,7 +390,7 @@ The pipeline is modularized, with each module located in the `metatranscriptomic
 - **Outputs:**
   - Table of abundances pathways confirmed by MinPath: `sample_aggregated_minpath.tsv`
   
-**`kegg_category_mappings` * Functional Categories***
+**Rule: `kegg_category_mappings` * Functional Categories***
 
 - **Purpose:** To summarize the MinPath-confirmed pathways into higher-level categories
 - **Inputs:**
@@ -359,6 +398,76 @@ The pipeline is modularized, with each module located in the `metatranscriptomic
   - BRITE hierarchy file from the KEGG database: `ko00001.keg`
 - **Outputs:**
   - Table of MinPath-confirmed pathways into higher-level categories: `sample_ko_pathway_abundance_with_category.tsv`
+
+### Module `mag.smk`
+
+**Rule: `megahit_assembly` *Assembly***
+
+- **Purpose:** Assemble reads into contigs and retain contigs over a user set length.
+- **Inputs:**
+  - Clean read pairs: `sample_trimmed_clean_R1.fastq.gz`/`sample_trimmed_clean_R2.fastq.gz`
+- **Outputs:**
+  - Assembly for each sample: `sample_assembly.contigs.fa`
+
+**Checkpoint: `filter_nonempty_assemblies` *Create new sample list***
+
+- **Purpose:** Remove poor samples that do not assemble from further steps in rules that use the assembly files as input.
+- **Inputs:**
+  - Assembly for each sample: `sample_assembly.contigs.fa`
+- **Outputs:**
+  - Sample list: `samples_with_contigs.txt`
+  
+**Rule: `index_assembly` *Bowtie2 index***
+
+- **Purpose:** Create a Bowtie2 index for each sample assembly.
+- **Inputs:**
+  - Assembly for each sample: `sample_assembly.contigs.fa`
+- **Outputs:**
+  - Bowtie2 index: `sample_assembly.1.bt2`, `sample_assembly.2.bt2`, `sample_assembly.3.bt2`, `sample_assembly.4.bt2`, `sample_assembly.rev.1.bt2`, and `sample_assembly.rev.2.bt2`
+
+**Rule: `map_reads_to_assembly` *Map paired reads back to assembly***
+
+- **Purpose:** Map each samples paired reads back to that sample assembly.
+- **Inputs:**
+  - Clean read pairs: `sample_trimmed_clean_R1.fastq.gz`/`sample_trimmed_clean_R2.fastq.gz`
+  - Bowtie2 index: `sample_assembly.1.bt2`, `sample_assembly.2.bt2`, `sample_assembly.3.bt2`, `sample_assembly.4.bt2`, `sample_assembly.rev.1.bt2`, and `sample_assembly.rev.2.bt2`
+- **Outputs:**
+  - Alignment map: `sample.bam`
+
+**Rule: `sample_depth_file` *Depth file for binning**
+
+- **Purpose:** Generate a depth file that contains the contig depth and contig variance. This file is used by MetaBAT for binning.
+- **Inputs:**
+  - Alignment map: `sample.bam`
+- **Outputs:**
+  - Depth file: `sample_depth.txt`
+
+**Rule: `metabat2_binning` *Bin contigs**
+
+- **Purpose:** MetaBAT2 will bin contigs into potential MAGs.
+- **Inputs:**
+  - Assembly for each sample: `sample_assembly.contigs.fa`
+  - Depth file: `sample_depth.txt`
+- **Outputs:**
+  - Directory for binned contigs: `SAMPLE_ASSEMBLY/metabat2/sample/bins`
+  - Directory for unbinned contigs: `SAMPLE_ASSEMBLY/metabat2/sample/unbinned`
+- **Notes:**
+
+  - The `bins` directory contains: `sample.bin.BinInfo.txt` and bins with the naming convention `sample.bin[1-9].fa` where [1-9] is a integer starting from 1 to the last bin number for that sample.
+  - The `unbinned` directory contains: `sample.bin.unbinned.fa`, `sample.bin.tooShort.fa`, and `sample.binlowDepth.fa`
+
+**Rule: `checkm2_bins` *Completeness and contamination**
+
+- **Purpose:** Check the completeness and contamination of the bins/potential MAGs.
+- **Inputs:**
+  - Directory for binned contigs: `SAMPLE_ASSEMBLY/metabat2/sample/bins`
+  - CheckM2 database: `uniref100.KO.1.dmnd`
+- **Outputs:**
+  - CheckM2 directory: `SAMPLE_ASSEMBLY/metabat2/sample/checkm2`
+  - Quality report: `quality_report.tsv`
+- **Notes:**
+
+  - The `checkm2` directory contains: `quality_report.tsv`.
 
 ---
 
@@ -378,8 +487,7 @@ The raw input data must be in the form of paired-end FASTQ files generated from 
 
 ## Parameters
 
-The `config/config.yaml` file contains the editable pipeline parameters, thread allocation for rules with more than one core, and the relative file paths for input and output. The prefix of the absolute file path must go in `.env`. Most tools in the pipeline have default parameters. The tools with parameters different from default or that can be edited in the `config/config.ymal` file are listed below.
-
+The `config/config.yaml` file contains the editable pipeline parameters, thread allocation for rules with more than one core, and the relative file paths for input and output. The prefix of the absolute file path must go in `.env`. Most tools in the pipeline have default parameters. The tools with parameters different from default or that can be edited in the `config/config.yaml` file are listed below.
 
 | Parameter                        | Value                                                                                                                                                                      |
 | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -387,17 +495,21 @@ The `config/config.yaml` file contains the editable pipeline parameters, thread 
 | *fastp: cut_tail*                | *If true, trim low quality bases from the 3′ end until a base meets or exceeds the cut_mean_quality threshold. If false,disabled.*                                        |
 | *fastp: cut_front*               | *If true, trim low quality bases from the 5′ end until a base meets or exceeds the cut_mean_quality threshold. If false,disabled.*                                        |
 | *fastp: cut_mean_quality*        | *A positive integer specifying the minimum average quality score threshold for sliding window trimming.*                                                                   |
-| *fastp: cut_window_size*         | *A positive interger specifing the sliding window size in bp when using cut_mean_quality.*                                                                                 |
-| *fastp: qualified_quality_phred* | *A positive interger specifing the minimum Phed score that a base needs to be considered qualified*.                                                                       |
+| *fastp: cut_window_size*         | *A positive integer specifying the sliding window size in bp when using cut_mean_quality.*                                                                                 |
+| *fastp: qualified_quality_phred* | *A positive interger specifing the minimum Phred score that a base needs to be considered qualified*.                                                                       |
 | *fastp: detect_adapter_for_pe*   | *If true, auto adapter detection. If false,disabled.*                                                                                                                      |
-| *fastp: length_required*         | *Reads shorter then this positive interger will be discarded.*                                                                                                             |
+| *fastp: length_required*         | *Reads shorter then this positive integer will be discarded.*                                                                                                             |
 | *kraken2: conf_threshold*        | *Interval between 0 and 1. Higher values require more of a read’s k-mers to match the same taxon before it is classified, increasing precision but reducing sensitivity.* |
-| *bracken: readlen*               | *The read length of your data in bp*                                                                                      |
+| *bracken: readlen*               | *Specify the read length (in base pairs) of your sequencing data.*                                                                                      |
 | *bracken: threshold_species,threshold_genus, and threshold_phylum*               | *specifies the minimum number of reads required for a classification at the specified rank. Any classifications with less than the specified threshold will not receive additional reads from higher taxonomy levels when distributing reads for abundance estimation. Default is 10* |
 | *bracken: threshold_domain*               | *specifies the minimum number of reads required for a classification. Set to 0 in this workflow to capture all the reads* |
 | *kegg_diamond: sensitivity*      | *Sensitivity modes are descibed in the [DIAMOND github wiki](https://github.com/bbuchfink/diamond/wiki/3.-Command-line-options).*|
 |*kegg_diamond: max_target_num*    | *--max-target-seqs/-k is the max number of target sequences per alignment to report. Set at 1 in this pipeline to only keep the best hit. Default is 25.*|
-|*kegg_diamond: out_file_format*   | *--outfmt is the output file format. Set as 6 qseqid sseqid slen pident length mismatch gapopen qstart qend sstart send evalue bitscore in this pipeline. |
+|*kegg_diamond: out_file_format*   | *--outfmt is the output file format. Set as 6 qseqid sseqid slen pident length mismatch gapopen qstart qend sstart send evalue bitscore in this pipeline.*|
+|*megahit_assembly: min_contig_length* |*--min-contig-len is the minimum length contigs must be to be outputted. Set at 1000 bp in this pipeline. Default is 200 bp.*|
+|*megahit_assembly: out_prefix*|*--out-prefix is the prefix of the outfile in the scratch directory. When it is moved from the scratch to working directory it will be renamed to `sample__assembly.contigs.fa`. In the pipeline this is set to final.*|
+|*map_reads_to_assembly: max_mem_per_thread*|*Maximum memory per node that `Samtools` can use during sorting. In this pipeline it is set at 4G*|
+|*metabat2_binning: min_contig_length*|*The minimum length a contig must be to be considered for binning. Set to 2000 bp in this pipeline. Default is 2500 bp.*|
 
 ---
 
@@ -458,6 +570,7 @@ chmod +x absolute/path/code/metagenomics-snakemake/workflow/scripts/MinPath/glpk
     ```bash
     zcat "prokaryotes.pep" | diamond makedb --in - -d "prokaryotes.pep" --threads 20
     ```
+
   - KEGG Orthology assignments of genes `ko_genes.list`
   - KEGG Orthology assignments of pathways `ko_pathway.list`
   - KEGG BRITE hierarchy file `ko00001.keg` avalible here <https://www.kegg.jp/kegg-bin/download_htext?htext=ko00001.keg&format=htext&KEGG>.
@@ -480,16 +593,22 @@ git clone <repository-url>
 ##### 2.1. SLURM Profile Directory Structure
 
 ```bash
-metatranscriptomics_pipeline/
+metagenomics_pipeline/
 ├── Workflow/
-│   └── Snakefile
-│   └── ... 
+|   └── Rules
+|          └──preprocessing.smk
+|          └── ...
+|   └── Snakefile
+│   └── env
+|        └── fastp.yaml
+|        └── bowtie2.yaml
+|        └── ...
+├── config/
+│   └── config.yaml             ← workflow config
+|   └── samples.txt
 ├── profiles/
 │   └── slurm/
 │       └── config.yaml         ← profile config
-├── config/
-│   └── config.yaml             ← workflow data/sample config
-|   └── samples.txt
 ├── run_snakemake.sh            ← your SLURM launcher
 ├── .env
 └── ...                     
@@ -614,9 +733,12 @@ Snakemake can automatically create and load Conda environments for each rule in 
 
 - `bedtools.yaml`
 - `bowtie2.yaml`
+- `checkm2.yaml`
 - `diamond.yaml`
 - `fastp.yaml`
 - `kraken2.yaml`
+- `magahit.yaml`
+- `metabat2.yaml`
 - `minpath.yaml`
 - `python3.yaml`
 - `rgi.yaml`
@@ -678,6 +800,7 @@ export PATH="$PWD/bin:$PATH"
 #### Current issues
 
 - In the .env file /gpfs/fs7/aafc/scratch/$USER/ was not solving to user so as a temporary fix I put in my user name.
+- replacing "$USER" with "${USER} resloves the issue. When the pipeline is not running make this change
 
 #### Resource usage
 
@@ -685,17 +808,67 @@ export PATH="$PWD/bin:$PATH"
 
 ## OUTPUT
 
-*Provide format, location, and naming of result files, and a brief description.*
+### Preprocessing Module (`preprocessing.smk`)
 
-*Example Output:*
+| **Output Type** | **Filename** | **Description** |
+|-----------------|---------------|-----------------|
+| Trimmed paired reads | temp(`sample_r1.fastq.gz`), temp(`sample_r2.fastq.gz`) | Adapter and quality trimmed paired-end reads from `fastp_pe` rule. These are marked temporary in the rule and will be removed once they are not needed by the pipeline. Can easily be changed by opening `workflow/rules/preprocessing.smk` and removing the temp().|
+| Fastp Report | temp(`sample.fastp.html`), temp(`sample.fastp.json`) | Quailty score statistics before and after processing.These are marked temporary in the rule and will be removed once they are not needed by the pipeline. Can easily be changed by opening `workflow/rules/preprocessing.smk` and removing the temp().|
+| Sorted BAM file | `sample.bam` | Aligned reads to Host/PhiX reference using Bowtie2 (`bowtie2_align` rule). |
+| Clean read pairs | protected(`sample_trimmed_clean_R1.fastq.gz`), protected(`sample_trimmed_clean_R2.fastq.gz`) | Host- and PhiX-depleted reads from `extract_unmapped_fastq`. These file are marked protected.|
 
-*Output files include:*
+---
 
-*- results/reports/summary.csv: Key metrics from analysis.*
+### Taxonomy Module (`taxonomy.smk`)
 
-*- results/logs/pipeline.log: Step-by-step log.*
+| **Output Type** | **Filename** | **Description** |
+|-----------------|---------------|-----------------|
+| Kraken output | `sample.kraken`, `sample.report.txt` | Kraken2 taxonomy assignment results. |
+| Bracken species/genus/phylum/domain reports | `sample_bracken.species.report.txt`, `sample_bracken.genus.report.txt`, `sample_bracken.phylum.report.txt`, `sample_bracken.domain.report.txt` | Refined abundance estimates at multiple taxonomic levels. |
+| Combined abundance tables | `merged_abundance_species.txt`, `merged_abundance_genus.txt`, `merged_abundance_phylum.txt`, `merged_abundance_domain.txt` | Merged Bracken abundance tables across samples. |
+| Cleaned abundance tables | `merged_abundance_species_cleaned.txt`, `merged_abundance_genus_cleaned.txt`, `merged_abundance_phylum_cleaned.txt`, `merged_abundance_domain_cleaned.txt` | Host taxa removed and normalized Bracken outputs. |
+| Adjusted Bracken tables | `bracken_cleaned_adjusted_species.txt`, `bracken_cleaned_adjusted_genus.txt`, `bracken_cleaned_adjusted_phylum.txt` | Relative abundance recalculated for prokaryotic reads only. |
+| Combined relative and raw abundance tables | `bracken_*_raw_abundance.csv`, `bracken_*_rel_abundance_default.csv`, `bracken_*_rel_abundance_adjusted.csv` | Consolidated Bracken outputs (raw, default, adjusted). |
 
-*- results/plots/visualization.png: Output plot.*
+---
+
+### AMR Module (`amr_short_reads.smk`)
+
+| **Output Type** | **Filename** | **Description** |
+|-----------------|---------------|-----------------|
+| CARD DB marker | `rgi_reload_db.done` | Confirms CARD database has been loaded (prevents reloading). |
+| RGI BWT outputs | `sample_paired.*.txt` (e.g., `allele_mapping_data.txt`, `overall_mapping_stats.txt`) | Antimicrobial resistance gene profiling outputs using RGI BWT. |
+
+---
+
+### KEGG Module (`kegg.smk`)
+
+| **Output Type** | **Filename** | **Description** |
+|-----------------|---------------|-----------------|
+| Concatenated read pairs | `sample_merged.fastq.gz` | Merged clean reads for KEGG processing. |
+| DIAMOND formatted database | `prokaryotes.pep.dmnd` | The KEGG database file `prokaryotes.pep.gz` is used to create the DIAMOND formatted database only if the database does not already exists |
+| DIAMOND database done marker | `prokaryotes_db_done.txt` | Confirms that `prokaryotes.pep.dmnd` exists |
+| DIAMOND alignment output | `sample_diamond_output.m8` | Alignment summary of reads vs KEGG protein database. |
+| Read count | `sample_read_count.txt` | Total read count for concatenated read pairs. |
+| KEGG gene abundance table | `sample_gene_ko_abundance.tsv` | KEGG orthology gene abundance normalized by RPKM and CPM. |
+| KEGG KO lists | `sample_ko_list_raw.txt`, `sample_ko_list_fixed.txt` | KEGG orthology ID lists for MinPath input. |
+| MinPath output | `sample_minpath_output.txt` | Predicted minimal set of KEGG pathways (MinPath). |
+| MinPath pathway abundance | `sample_aggregated_minpath.tsv` | Abundance table for MinPath-confirmed pathways. |
+| KEGG category table | `sample_ko_pathway_abundance_with_category.tsv` | Pathways summarized into higher-level KEGG BRITE categories. |
+
+---
+
+### MAG Module (`mag.smk`)
+
+| **Output Type** | **Filename** | **Description** |
+|-----------------|---------------|-----------------|
+| Assembly | `sample_assembly.contigs.fa` | Assembled contigs for each sample (`megahit_assembly`). |
+| Filtered sample list | `samples_with_contigs.txt` | List of samples with successful assemblies. |
+| Bowtie2 index | `sample_assembly.[1-4].bt2`, `sample_assembly.rev.[1-2].bt2` | Bowtie2 index files for each assembly. |
+| Assembly alignment map | `sample.bam` | Reads mapped back to assembly. |
+| Depth file | `sample_depth.txt` | Contig depth and variance for binning with MetaBAT2. |
+| Binning outputs | `SAMPLE_ASSEMBLY/metabat2/sample/bins`, `.../unbinned` | Binned and unbinned contigs from MetaBAT2. |
+| CheckM2 quality report | `quality_report.tsv` | Completeness and contamination metrics for bins/MAGs. |
 
 ---
 

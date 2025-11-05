@@ -133,6 +133,14 @@ set-resources:
     slurm_account: aafc_aac
     slurm_cluster: gpsc8
 
+  make_kegg_diamond_db:
+    cpus: 8
+    mem_mb: 64000
+    runtime: 7600
+    slurm_partition: standard
+    slurm_account: aafc_aac
+    slurm_cluster: gpsc8
+    
   kegg_diamond:
     cpus: 8
     mem_mb: 64000
@@ -171,4 +179,76 @@ set-resources:
     runtime: 160
     slurm_partition: standard
     slurm_account: aafc_aac
+    slurm_cluster: gpsc8
+
+  kegg_category_sampleIDs:
+    cpus: 1
+    mem_mb: 4000
+    runtime: 30
+    slurm_partition: standard
+    slurm_account: aafc_aac
+    slurm_cluster: gpsc8
+  
+  combine_kegg_category_tables:
+    cpus: 1
+    mem_mb: 4000
+    runtime: 30
+    slurm_partition: standard
+    slurm_account: aafc_aac
+    slurm_cluster: gpsc8
+
+  filter_combined_kegg_table:
+    cpus: 1
+    mem_mb: 4000
+    runtime: 30
+    slurm_partition: standard
+    slurm_account: aafc_aac
+    slurm_cluster: gpsc8
+
+  megahit_assembly:
+    cpus: 16
+    mem_mb: 64000
+    runtime: 1000
+    slurm_partition: standard
+    slurm_account: aafc_aac
+    slurm_cluster: gpsc8
+
+  index_assembly:
+    cpus: 8
+    mem_mb: 4000
+    runtime: 30
+    slurm_partition: standard
+    slurm_account: aafc_aac
+    slurm_cluster: gpsc8 
+  
+  map_reads_to_assembly:
+    cpus: 16
+    mem_mb: 32000
+    runtime: 30
+    slurm_partition: standard
+    slurm_account: aafc_aac
+    slurm_cluster: gpsc8
+
+  sample_depth_file:
+    cpus: 1
+    mem_mb: 4000
+    runtime: 30
+    slurm_partition: standard
+    slurm_account: aafc_aac
+    slurm_cluster: gpsc8
+  
+  metabat2_binning:
+    cpus: 6
+    mem_mb: 128000
+    runtime: 240
+    slurm_partition: standard
+    slurm_account: aafc_aac
+    slurm_cluster: gpsc8
+
+  checkm2:
+    cpus: 4
+    mem_mb: 840000
+    runtime: 30
+    slurm_partition: large
+    slurm_account: aafc_aac__large
     slurm_cluster: gpsc8

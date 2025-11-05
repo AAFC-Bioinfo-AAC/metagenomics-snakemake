@@ -17,3 +17,15 @@ snakemake_slurm_launcher.sh
 config/samplesheet_allsamples.csv.full
 resources/ko00001.keg
 dry_run_kegg.txt
+workflow/scripts/MinPath/
+dag.*
+rulegraph.*
+snakemake_dag.log
+results/software_versions/software_versions_summary.txt
+results/software_versions/key_bioinformatics_software.txt
+.gitignore
+config/incompletesamplesheet.csv.testruns
+snakemake.log
+single_sample.dot
+.gitignore
+single_sample_dag.svg
