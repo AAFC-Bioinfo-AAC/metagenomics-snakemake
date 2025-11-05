@@ -1,23 +1,148 @@
+# =============================================================================
+# CITATION.cff TEMPLATE — AAFC Bioinformatics Code Catalogue (ABCC)
+# =============================================================================
+# This file provides citation metadata for your software or dataset.
+# When present in the repository root, GitHub and Zenodo will automatically
+# display a “Cite this repository” button and generate formatted citations.
+#
+# Syntax: YAML (YAML Ain’t Markup Language)
+# Comments (like these) start with '#'
+#
+# Reference: https://citation-file-format.github.io/
+#
+# Visit https://bit.ly/cffinit to easily generate a CITATION.cff file!
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# CFF VERSION (required)
+# Must be the first field. Defines the version of the Citation File Format.
+# ---------------------------------------------------------------------------
 cff-version: 1.2.0
-message: "If you use this software, please cite it as below."
-title: "ABCC_TEMPLATE: A Reproducible Data Processing Pipeline Template"
-version: 1.0.0
-doi: # Optional if using Zenodo integration
-date-released: 2025-06-01
-authors:
-  - family-names: ABCC core team
-    given-names: 
-    orcid: 
-    affiliation: 
-abstract: >
-  ABCC_TEMPLATE is a modular and extensible template for developing reproducible 
-  data analysis pipelines. It is designed to help researchers and developers quickly
-  set up new projects by providing modular and parameterized components that can be
-  easily adapted to different use cases.
+
+# ---------------------------------------------------------------------------
+# MESSAGE (optional but recommended)
+# A short human-readable statement shown by GitHub above the citation.
+# ---------------------------------------------------------------------------
+message: >-
+  If you use this software, please cite it using the metadata provided below.
+
+# ---------------------------------------------------------------------------
+# TITLE (required)
+# The formal name of your software or dataset.
+# ---------------------------------------------------------------------------
+title: >-
+  ABCC Template Repository: A Reproducible Data Processing Pipeline Template
+
+# ---------------------------------------------------------------------------
+# TYPE (optional but highly recommended)
+# Indicates what is being cited. Common values:
+# - software  → for code repositories
+# - dataset   → for data collections
+# - generic   → for other materials
+# ---------------------------------------------------------------------------
+type: software
+
+# ---------------------------------------------------------------------------
+# VERSION (optional but strongly recommended)
+# Should match your release tag or software version number.
+# ---------------------------------------------------------------------------
+version: "1.0.0"
+
+# ---------------------------------------------------------------------------
+# DATE RELEASED (optional but recommended)
+# Use ISO 8601 format: YYYY-MM-DD
+# ---------------------------------------------------------------------------
+date-released: "2025-09-11"
+
+# ---------------------------------------------------------------------------
+# LICENSE (optional but strongly recommended)
+# Use an SPDX license identifier (https://spdx.org/licenses/)
+# ---------------------------------------------------------------------------
 license: MIT
-repository-code: https://github.com/AAFC-Bioinfo-AAC/template-repository
+
+# ---------------------------------------------------------------------------
+# REPOSITORY CODE (recommended for GitHub projects)
+# URL pointing to your code repository.
+# For non-code resources, use 'repository-artifact:' or 'url:' instead.
+# ---------------------------------------------------------------------------
+repository-code: "https://github.com/AAFC-Bioinfo-AAC/template-repository"
+
+# ---------------------------------------------------------------------------
+# ABSTRACT (optional but recommended)
+# Use folded block scalars (">-") for readability.
+# Newlines are converted to spaces, forming a flowing paragraph.
+# ---------------------------------------------------------------------------
+abstract: >-
+  The AAFC Bioinformatics Code Catalogue (ABCC) template repository provides a
+  modular and extensible framework for developing reproducible data analysis
+  pipelines within the AAFC-Bioinfo-AAC GitHub organization. It enables
+  researchers and developers to quickly initialize new projects using
+  parameterized, reusable components adaptable to diverse analytical workflows.
+
+# ---------------------------------------------------------------------------
+# KEYWORDS (optional)
+# Use keywords that help others discover your repository.
+# ---------------------------------------------------------------------------
 keywords:
   - reproducibility
-  - template
   - bioinformatics
+  - template
   - pipeline
+  - Snakemake
+  - AAFC
+
+# ---------------------------------------------------------------------------
+# IDENTIFIERS (optional)
+# Add permanent identifiers such as DOI from Zenodo or DataCite.
+# ---------------------------------------------------------------------------
+# identifiers:
+#   - type: doi
+#     value: "10.5281/zenodo.xxxxxxx"
+
+# ---------------------------------------------------------------------------
+# AUTHORS (required)
+# At least one author entry is required.
+# You must provide EITHER:
+#   (1) given-names + family-names  (for individuals)
+#   OR
+#   (2) name                        (for teams or organizations)
+# ---------------------------------------------------------------------------
+authors:
+  # Example 1: Team author (for collaborative repos)
+  - name: "AAFC Bioinformatics Code Catalogue (ABCC) project team"
+    affiliation: "Agriculture and Agri-Food Canada (AAFC)"
+
+  # Example 2: Individual authors (optional if team is listed)
+  # - given-names: "First name"
+  #   family-names: "Last name"
+  #   affiliation: "Agriculture and Agri-Food Canada (AAFC)"
+  #   orcid: "https://orcid.org/0000-0000-0000-0000"
+
+# ---------------------------------------------------------------------------
+# CONTACT (optional)
+# The main contact person for the repository (often the maintainer).
+# ---------------------------------------------------------------------------
+# contact:
+#  - name: "First Last"
+#    email: "first.last@agr.gc.ca"
+
+# ---------------------------------------------------------------------------
+# PREFERRED CITATION (optional but recommended)
+# If you have a DOI, preprint, or publication describing the software,
+# specify it here for consistent citation.
+# ---------------------------------------------------------------------------
+# preferred-citation:
+#   type: article
+#   title: "ABCC Template Repository: A reproducible pipeline framework for AAFC bioinformatics"
+#   authors:
+#     - given-names: "First"
+#       family-names: "Last"
+#   year: 2025
+#   journal: "Zenodo"
+#   doi: "00.0000/zenodo.xxxxxxx"
+
+# =============================================================================
+# END OF TEMPLATE
+# =============================================================================
+
+
