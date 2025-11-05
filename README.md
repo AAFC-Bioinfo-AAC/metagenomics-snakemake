@@ -390,7 +390,7 @@ The pipeline is modularized, with each module located in the `metatranscriptomic
 - **Outputs:**
   - Table of abundances pathways confirmed by MinPath: `sample_aggregated_minpath.tsv`
   
-**Rule: `kegg_category_mappings` * Functional Categories***
+**Rule: `kegg_category_mappings` *Functional Categories***
 
 - **Purpose:** To summarize the MinPath-confirmed pathways into higher-level categories
 - **Inputs:**
@@ -398,6 +398,34 @@ The pipeline is modularized, with each module located in the `metatranscriptomic
   - BRITE hierarchy file from the KEGG database: `ko00001.keg`
 - **Outputs:**
   - Table of MinPath-confirmed pathways into higher-level categories: `sample_ko_pathway_abundance_with_category.tsv`
+**Rule: `kegg_category_sampleID` *Add SampleID column***
+
+- **Purpose:** A sampleID column is added, so that tables can be combined.
+- **Inputs:**
+  - Table of MinPath-confirmed pathways into higher-level categories: `sample_ko_pathway_abundance_with_category.tsv`
+- **Outputs:**
+  - Table of MinPath-confirmed pathways into higher-level categories with SampleID: `sample_ko_pathway_abundance_with_category_sampleID.tsv"`
+
+**Rule: `combine_kegg_category_tables` *Combine tables***
+
+- **Purpose:** Combine all samples into one table
+- **Inputs:**
+  - Table of MinPath-confirmed pathways into higher-level categories with SampleID: `sample_ko_pathway_abundance_with_category_sampleID.tsv"`
+- **Outputs:**
+  - Combined table of all samples for higher-level categories: `combined_ko_pathway_abundance_with_category.tsv`
+
+**Rule: `filter_combined_kegg_table` *Remove non-prokaryotic pathways***
+
+- **Purpose:** Remove higher level pathways from the table based an exclusion list.
+- **Inputs:**
+  - Combined table of all samples for higher-level categories: `combined_ko_pathway_abundance_with_category.tsv`
+  - List of pathways to remove: `KEGG_BRITE_pathway_exclusion_file.txt`
+- **Outputs:**
+  - Combined table with non-prokaryotic pathways removed: `combined_ko_pathway_abundance_with_category_filtered.tsv`
+
+- **Notes:**
+
+  - Exclusion list can be edited and is located in `code/metagenomics-snakemake/resources`.
 
 ### Module `mag.smk`
 
