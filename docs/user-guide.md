@@ -765,7 +765,7 @@ This is the script you use to submit the Snakemake pipeline to SLURM.
 ```bash
 #!/bin/bash
 #SBATCH --job-name=run_snakemake.sh
-#SBATCH --output=run_snakemaket_%j.out 
+#SBATCH --output=run_snakemake_%j.out 
 #SBATCH --error=run_snakemake_%j.err 
 #SBATCH --cluster=gpsc8 
 #SBATCH --partition=standard
