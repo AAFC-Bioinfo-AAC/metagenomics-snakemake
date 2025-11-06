@@ -794,8 +794,7 @@ export PATH="$PWD/bin:$PATH"
 
 #### Current issues
 
-- In the .env file /gpfs/fs7/aafc/scratch/$USER/ was not solving to user so as a temporary fix I put in my user name.
-- replacing "$USER" with "${USER} resolves the issue. When the pipeline is not running make this change
+None.
 
 #### Resource usage
 
