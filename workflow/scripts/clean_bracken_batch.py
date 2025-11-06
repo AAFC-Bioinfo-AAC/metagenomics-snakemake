@@ -11,6 +11,11 @@ import sys
 if hasattr(snakemake, "log") and snakemake.log:
     sys.stdout = open(snakemake.log[0], "w")
     sys.stderr = sys.stdout
+##########################################################################################
+## EDIT TAXA FILTERS HERE.
+## These taxa will be removed from the Bracken output at each taxonomic level
+## Leave the taxonomy levels "domain", "phylum", "genus", "species" as-is.
+## Change only the lists of taxa to filter out. The things in the [] are exact matches to the 'name' column in Bracken output.
 
 # Define taxa to filter at each level
 TAXA_FILTERS = {
@@ -19,7 +24,7 @@ TAXA_FILTERS = {
     "genus": ["Bos", "Sus", "Homo"],
     "species": ["Bos taurus", "Bos indicus", "Sus scrofa", "Homo sapiens"]
 }
-
+##########################################################################################
 def recompute_fracs_from_nums(df: pd.DataFrame) -> pd.DataFrame:
     """
     For each sample, sets '<sample>..._frac' = '<sample>..._num' / sum('<sample>..._num').
