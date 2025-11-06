@@ -523,11 +523,11 @@ The `config/config.yaml` file contains the editable pipeline parameters, thread 
 
 ## Filters and exclusion lists
 
-**SEE What can be put in confug file**
+- **SEE What can be put in confug file**
 
 |Module | Rule | File | Description|
 |------|------|------|-------------|
-|taxonomy.smk| clean_host_bracken | workflow/scripts/clean_bracken_batch.py| This script removes the host taxa from Bracken output files (as defined in the TAXA_FILTERS). Then the samples are re-normalized using the total remaining read counts (recomputing *_frac columns from *_num columns). It is clearly indicated in the script where to edit the filter lists.|
+|taxonomy.smk| clean_host_bracken | workflow/scripts/clean_bracken_batch.py| This script removes the host taxa from Bracken output files (as defined in the TAXA_FILTERS). Then the samples are re-normalized using the total remaining read counts. It is clearly indicated in the script where to edit the filter lists.|
 |kegg.smk| filter_combined_kegg_table | resources/KEGG_BRITE_pathway_exclusion_file.txt| The exclusion list removes non-prokaryotic pathways from the analysis. This tab-delimited file contains two columns: "Pathway_ID" and "Pathway_Name". The "Pathway_ID" is a four-digit string (e.g., 00073, 05418) that corresponds to the [KEGG Pathway Map](https://www.genome.jp/kegg-bin/get_htext?br08901.keg).|
 
 ---
@@ -830,7 +830,6 @@ None.
 
 ### Preprocessing Module (`preprocessing.smk`)
 
-
 | **Output Type**      | **Filename**                                                                                 | **Description**                                                                                                                                                                                                                                                     |
 | ---------------------- | ---------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Trimmed paired reads | temp(`sample_r1.fastq.gz`), temp(`sample_r2.fastq.gz`)                                       | Adapter and quality trimmed paired-end reads from`fastp_pe` rule. These are marked temporary in the rule and will be removed once they are not needed by the pipeline. Can easily be changed by opening `workflow/rules/preprocessing.smk` and removing the temp(). |
@@ -841,7 +840,6 @@ None.
 ---
 
 ### Taxonomy Module (`taxonomy.smk`)
-
 
 | **Output Type**                             | **Filename**                                                                                                                                               | **Description**                                             |
 | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------- |
@@ -856,7 +854,6 @@ None.
 
 ### AMR Module (`amr_short_reads.smk`)
 
-
 | **Output Type** | **Filename**                                                                         | **Description**                                                |
 | ----------------- | -------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
 | CARD DB marker  | `rgi_reload_db.done`                                                                 | Confirms CARD database has been loaded (prevents reloading).   |
@@ -865,7 +862,6 @@ None.
 ---
 
 ### KEGG Module (`kegg.smk`)
-
 
 | **Output Type**              | **Filename**                                         | **Description**                                                                                                                          |
 | ------------------------------ | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -883,7 +879,6 @@ None.
 ---
 
 ### MAG Module (`mag.smk`)
-
 
 | **Output Type**        | **Filename**                                                 | **Description**                                         |
 | ------------------------ | -------------------------------------------------------------- | --------------------------------------------------------- |

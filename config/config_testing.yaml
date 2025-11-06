@@ -14,19 +14,19 @@ conda_prefix: "code/malate-smk-conda-env"
 # -------------------------------------------------------------------
 # Directories paths relative to PROJECT_ROOT in .env file
 # -------------------------------------------------------------------
-log_files: "code/metagenomics-snakemake/workflow/logs"
+log_files: "code/metagenomics-snakemake/workflow/test_set/logs"
 software_versions: "code/metagenomics-snakemake/results/software_versions"
-reads_dir: "data/raw/fastq"
+reads_dir: "data/raw/test_set"
 bowtie2_index: "code/metagenomics-snakemake/resources/bowtie2_index/Cow_phiX"
-reads_host_dep: "workspace/clean_reads"
-merged_reads: "workspace/merged_reads"
-kraken_short_reads_dir: "workspace/taxonomy_short_reads/kraken2"
-bracken_short_reads_dir: "workspace/taxonomy_short_reads/bracken"
-amr_screening_dir: "workspace/amr_screening"
-kegg_output_dir: "workspace/kegg_analysis"
+reads_host_dep: "workspace/test_set/clean_reads"
+merged_reads: "workspace/test_set/merged_reads"
+kraken_short_reads_dir: "workspace/test_set/taxonomy_short_reads/kraken2"
+bracken_short_reads_dir: "workspace/test_set/taxonomy_short_reads/bracken"
+amr_screening_dir: "workspace/test_set/amr_screening"
+kegg_output_dir: "workspace/test_set/kegg_analysis"
 kegg_custom_list: "code/metagenomics-snakemake/resources"
 kegg_diamond_DB: "data/reference/databases/KEGG"
-mag_output_dir: "workspace/individual_assemblies"
+mag_output_dir: "workspace/test_set/individual_assemblies"
 
 ### File path for CARD database if the user set it up. This is a fallback if there is no common database
 card_latest: "/code/metagenomics-snakemake/localDB"

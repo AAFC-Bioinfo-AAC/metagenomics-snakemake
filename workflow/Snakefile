@@ -23,12 +23,9 @@ CONFIG_DIR     = os.path.join(PIPELINE_DIR, "config")
 # TMPDIR setup
 # -------------------------------------------------------------------
 
-user = os.environ.get("USER")
-if not user:
-    raise ValueError("Environment variable USER is not set.")
-
-fallback_tmpdir = f"/gpfs/fs7/aafc/scratch/{user}/tmpdir/malate"
-TMPDIR = os.path.expandvars(os.getenv("TMPDIR", fallback_tmpdir))
+TMPDIR = os.getenv("TMPDIR")
+if not TMPDIR:
+    raise ValueError("Environment variable TMPDIR is not set.")
 os.makedirs(TMPDIR, exist_ok=True)
 
 # -------------------------------------------------------------------

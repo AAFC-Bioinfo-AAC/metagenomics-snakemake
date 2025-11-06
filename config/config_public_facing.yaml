@@ -3,13 +3,13 @@
 # -------------------------------------------------------------------
 
 # Follow instructions in the user guide to create your own samplesheet.csv file
-samplesheet: "samplesheet.csv"
+samplesheet: "test_samplesheet.csv"
 
 # -------------------------------------------------------------------
 # Conda environment prefix relative to PROJECT_ROOT in .env file
 # -------------------------------------------------------------------
 
-conda_prefix: "code/malate-smk-conda-env" 
+conda_prefix: "code/metag-smk-conda-env" 
 
 # -------------------------------------------------------------------
 # Directories paths relative to PROJECT_ROOT in .env file
