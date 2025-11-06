@@ -9,12 +9,11 @@
 - [Overview](#overview)
   - [Workflow diagram](#workflow-diagram)
   - [Snakemake rules](#snakemake-rules)
-- [Preprocessing Module Overview](#preprocessing-module-overview)
-  - [Module `preprocessing.smk`](#module-preprocessingsmk)
-  - [Module `taxonomy.smk`](#module-taxonomysmk)
-  - [Module `amr_short_reads.smk`](#module-amr_short_readssmk)
-  - [Module `kegg.smk`](#module-keggsmk)
-  - [Module `mag.smk`](#module-magsmk)
+    - [Module `preprocessing.smk`](#module-preprocessingsmk)
+    - [Module `taxonomy.smk`](#module-taxonomysmk)
+    - [Module `amr_short_reads.smk`](#module-amr_short_readssmk)
+    - [Module `kegg.smk`](#module-keggsmk)
+    - [Module `mag.smk`](#module-magsmk)
 - [Data](#data)
 - [Parameters](#parameters)
 - [Usage](#usage)
@@ -106,13 +105,9 @@ flowchart TD
 
 ### Snakemake rules
 
-## Preprocessing Module Overview
+The pipeline is modularized, with each module located in the `metagenomics-snakemake/workflow/rules` directory. The modules are `preprocessing.smk`, `taxonomy.smk`, `amr_short_reads.smk`, `kegg.smk` and `mag.smk`.
 
-The pipeline is modularized, with each module located in the `metatranscriptomics-snakemake/workflow/rules` directory. The modules are `preprocessing.smk`, `taxonomy.smk`, `amr_short_reads.smk` and `kegg.smk`. **More modules to follow**
-
----
-
-### Module `preprocessing.smk`
+#### Module `preprocessing.smk`
 
 **Rule: `fastp_pe` *Quality Control & Trimming***
 
@@ -151,7 +146,7 @@ The pipeline is modularized, with each module located in the `metatranscriptomic
 
 ---
 
-### Module `taxonomy.smk`
+#### Module `taxonomy.smk`
 
 **Rule: `kraken2` *Assign Taxonomy***
 
@@ -244,7 +239,7 @@ The pipeline is modularized, with each module located in the `metatranscriptomic
 
 ---
 
-### Module `amr_short_reads.smk`
+#### Module `amr_short_reads.smk`
 
 **Rule: `rgi_reload_database` *Load CARD DB***
 
@@ -280,7 +275,7 @@ The pipeline is modularized, with each module located in the `metatranscriptomic
 
 ---
 
-### Module `kegg.smk`
+#### Module `kegg.smk`
 
 **Rule: `merge_read_pairs` *Concatenate***
 
@@ -399,7 +394,7 @@ The pipeline is modularized, with each module located in the `metatranscriptomic
 
   - Exclusion list can be edited and is located in `code/metagenomics-snakemake/resources`.
 
-### Module `mag.smk`
+#### Module `mag.smk`
 
 **Rule: `megahit_assembly` *Assembly***
 
