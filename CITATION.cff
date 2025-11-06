@@ -1,23 +1,42 @@
 cff-version: 1.2.0
+
 message: "If you use this software, please cite it as below."
-title: "ABCC_TEMPLATE: A Reproducible Data Processing Pipeline Template"
-version: 1.0.0
-doi: # Optional if using Zenodo integration
-date-released: 2025-06-01
-authors:
-  - family-names: ABCC core team
-    given-names: 
-    orcid: 
-    affiliation: 
-abstract: >
-  ABCC_TEMPLATE is a modular and extensible template for developing reproducible 
-  data analysis pipelines. It is designed to help researchers and developers quickly
-  set up new projects by providing modular and parameterized components that can be
-  easily adapted to different use cases.
-license: MIT
-repository-code: https://github.com/AAFC-Bioinfo-AAC/template-repository
+
+title: Metagenomics Snakemake Pipeline
+type: software
+version: "1.0.0"
+date-released: "2025-11-xx" # Update to actual release date
+repository-code: "https://github.com/AAFC-Bioinfo-AAC/metagenomics-snakemake"
+license: GPL-3.0
+
+identifiers:
+  - type: doi
+    value: # Insert Zenodo DOI
+
+abstract: >-
+  A reproducible, modular Snakemake workflow designed to process, assemble, and analyze
+  Illumina paired-end reads from high-biomass, host-associated metagenomic samples.
+
 keywords:
   - reproducibility
-  - template
+  - metagenomics
   - bioinformatics
   - pipeline
+  - Snakemake
+  - AAFC
+
+authors:
+  - family-names: James-Gzyl
+    given-names: Katherine
+    affiliation: "Agriculture and Agri-Food Canada (AAFC)"
+    orcid: https://orcid.org/0000-0002-5912-8493
+  
+  - family-names: Kommadath
+    given-names: Arun
+    affiliation: "Agriculture and Agri-Food Canada (AAFC)"
+    orcid: https://orcid.org/0000-0003-3587-6670
+  
+  - family-names: Holman
+    given-names: Devin
+    affiliation: "Agriculture and Agri-Food Canada (AAFC)"
+    orcid: https://orcid.org/0000-0001-5306-3732
