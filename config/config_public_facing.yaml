@@ -1,0 +1,133 @@
+# -------------------------------------------------------------------
+# Sample list
+# -------------------------------------------------------------------
+
+# Follow instructions in the user guide to create your own samplesheet.csv file
+samplesheet: "samplesheet.csv"
+
+# -------------------------------------------------------------------
+# Conda environment prefix relative to PROJECT_ROOT in .env file
+# -------------------------------------------------------------------
+
+conda_prefix: "code/malate-smk-conda-env" 
+
+# -------------------------------------------------------------------
+# Directories paths relative to PROJECT_ROOT in .env file
+# -------------------------------------------------------------------
+log_files: "code/metagenomics-snakemake/workflow/logs"
+software_versions: "code/metagenomics-snakemake/results/software_versions"
+reads_dir: "data/raw/fastq"
+bowtie2_index: "code/metagenomics-snakemake/resources/bowtie2_index/Cow_phiX"
+reads_host_dep: "workspace/clean_reads"
+merged_reads: "workspace/merged_reads"
+kraken_short_reads_dir: "workspace/taxonomy_short_reads/kraken2"
+bracken_short_reads_dir: "workspace/taxonomy_short_reads/bracken"
+amr_screening_dir: "workspace/amr_screening"
+kegg_output_dir: "workspace/kegg_analysis"
+kegg_custom_list: "code/metagenomics-snakemake/resources"
+kegg_diamond_DB: "data/reference/databases/KEGG"
+mag_output_dir: "workspace/individual_assemblies"
+
+### File path for CARD database if the user set it up. This is a fallback if there is no common database
+card_latest: "/code/metagenomics-snakemake/localDB"
+
+# Files relative to TMPDIR
+reads_trimmed: "fastp_trimmed"
+
+# -------------------------------------------------------------------
+# Directories paths must be absolute paths to common drive
+# -------------------------------------------------------------------
+# Must be absolute paths
+gtbd_DB: "abs/path/to/db/data/reference/databases/Kraken2_GTDB226_plus_host"
+ko_lists: "abs/path/to/db/reference/kegg/genes/ko"
+kegg_fasta: "abs/path/to/db/reference/kegg/genes/fasta"
+kegg_brite_hierarchy: "abs/path/to/db/reference/kegg/brite/ko"
+checkm2_DB: "abs/path/to/db/reference/CheckM2_database/uniref100.KO.1.dmnd"
+
+# -------------------------------------------------------------------
+# Parameters and threads 
+# See the user documentation parameters section
+# -------------------------------------------------------------------
+
+## preprocessing.smk
+fastp:
+  threads: 4
+  cut_tail: true
+  cut_front: true
+  cut_mean_quality: 20
+  cut_window_size: 4
+  qualified_quality_phred: 15
+  detect_adapter_for_pe: true
+  length_required: 100
+bowtie2_align:
+  threads: 16
+extract_unmapped_fastq:
+  threads: 8
+## amr_short_reads.smk
+rgi_reload_database:
+  threads: 1
+symlink_rgi_card:
+  threads: 1
+rgi_bwt:
+  threads: 8
+## taxonomy.smk
+kraken2:
+  threads: 2
+  conf_threshold: "0.5"
+bracken:
+  threads: 2
+  readlen: 150
+combine_bracken_outputs:
+  threads: 1
+clean_host_bracken:
+  threads: 1
+bracken_recompute_fractions:
+  threads: 1
+bracken_extract:
+  threads: 1
+## kegg.smk
+merge_read_pairs:
+  threads: 1
+make_kegg_diamond_db:
+  threads: 8
+kegg_diamond:
+  threads: 8
+  sensitivity: ""  #The sensitivity can be adjusted using the options --faster, --fast, --mid-sensitive, --sensitive, --more-sensitive, --very-sensitive and --ultra-sensitive. Without using any sensitivity option, the default mode will run which is designed for finding hits of >60% identity and short read alignment. Its sensitivity is between --fast and --mid-sensitive
+  max-target-seqs: 1 #The maximum number of target sequences per query to report alignments for (default=25). Setting this to -k0 will report all targets for which alignments were found.
+  outfmt: "6 qseqid sseqid slen pident length mismatch gapopen qstart qend sstart send evalue bitscore" #Format of the output file. By default, there are 12 preconfigured fields: qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore
+count_reads:
+  threads: 1
+gene_ko_abundance:
+  threads: 1
+make_ko_lists:
+  threads: 1
+minpath:
+  threads: 1
+aggregate_minpath:
+  threads: 1
+kegg_category_mapping:
+  threads: 1
+kegg_category_sampleID:
+  threads: 1
+combine_kegg_category_tables:
+  threads: 1
+filter_combined_kegg_table:
+  threads: 1
+## mag.smk
+megahit_assembly:
+  threads: 16
+  min_contig_len: 1000
+  out_prefix: "final"
+index_assembly:
+  threads: 8
+map_reads_to_assembly:
+  threads: 8
+  max_mem_per_thread: "4G"
+sample_depth_file:
+  threads: 1
+metabat2_binning:
+  threads: 6
+  min_contig_length: 2500
+checkm2:
+  threads: 4
+  memory_usage: "--lowmem" # --lowmem flag reduces the RAM usage of the DIAMOND annotation step by half.
