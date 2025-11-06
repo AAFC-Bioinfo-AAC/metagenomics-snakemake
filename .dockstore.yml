@@ -19,11 +19,11 @@ workflows:
   # It should be noted that having the name come first is an arbitrary decision.
   # You could use subclass instead, for instance. Provided arrays are not broken
   # up, the order of fields within a .dockstore.yml is not important.
-  - name: <String>
+  # - name: <String>
 
     # The descriptor language used for the workflow. CWL, WDL, NFL (Nextflow), SMK (Snakemake) or GALAXY.
     # This cannot be changed once the workflow is registered.
-    subclass: <CWL | WDL | NFL | SMK | GALAXY>
+    subclass: SMK
 
     # Workflow-wide setting that will affect ALL branches/tags; only set this as needed in a main branch.
     # Set to true to publish an unpublished workflow, or false to unpublish a published workflow.
@@ -38,7 +38,7 @@ workflows:
     # - For Galaxy, the primary descriptor is a .ga file.
     # - Nextflow differs from these as the primary descriptor is a nextflow.config file.
     # - Snakemake differs from these as the primary descriptor is the Snakefile
-    primaryDescriptorPath: <String>
+    primaryDescriptorPath: /workflow/Snakefile
 
     # An optional array of absolute paths to test parameter files in the Git repository.
     # For example...
@@ -46,41 +46,43 @@ workflows:
     #   - /null-model/null-model.json
     #   - /null-model/null-model-binary.json
     testParameterFiles:
-      - <String>
-      - <String>
+      - /config/config.yaml
 
     # An optional path to a workflow-specific readme in the Git repository. If not provided, Dockstore will show
     # the readme.md present at the root of the Git repository if it is present.
     # If you have multiple workflows in a single Git repository, it is recommend to give each one a readme.
-    readMePath: <String>
+    # readMePath: <String>
 
     # An optional array of authorship information.
     # Note that if orcid is present, then all other fields will be ignored, as information will be taken from orcid.
     # If orcid is not present, make sure to at a minimum include the name field for each author.
     authors:
-      - orcid: <String>
-      - name: <String>
-        email: <String>
-        role: <String>
-        affiliation: <String>
+      - orcid: https://orcid.org/0000-0002-5912-8493  # Katherine James-Gzyl
+      - orcid: https://orcid.org/0000-0003-3587-6670  # Arun Kommadath
+      - orcid: https://orcid.org/0000-0001-5306-3732  # Devin Holman
+
+      # - name: <String>
+      #   email: <String>
+      #   role: <String>
+      #   affiliation: <String>
 
     # An optional short text description of the workflow, 150 characters or less in length.
     # Useful to specify unique topics for multiple workflows in the same repository, or a topic that differs from the default.
     # If not provided, Dockstore will use the repository's "About" description as the topic.
     # Set this field to the empty string to reset the topic to the repository's "About" description.
     # Workflow-wide setting that will affect ALL branches/tags; only set this as needed in a main branch.
-    topic: <String>
+    topic: A Snakemake based pipeline to analyse Illumina shotgun metagenomics sequences.
 
     # A boolean that will change the default version to be displayed on Dockstore. Default: False.
     # A value of true will automatically display the latest tag updated as default.
     # A value of false will retain the default version that has been specified via the Dockstore UI.
-    latestTagAsDefault: <Boolean>
+    latestTagAsDefault: false
 
     # 'enableAutoDois' is a workflow-wide setting that will affect ALL branches/tags; only set this as needed in a main branch
     # to control whether DOIs are automatically issued for tags. Default: true.
     # A value of true will enable automatic DOIs.
     # A value of false will disable automatic DOIs, DOIs will only be issued on demand.
-    enableAutoDois: <Boolean>
+    enableAutoDois: false
 
     # The optional filters section allow specifying sets of Git branches and tags to include for the workflow.
     # If no filters are given, all branches and tags are included.
@@ -90,8 +92,4 @@ workflows:
     # or RegEx when the string is surrounded by / (Ex: `/develop/`, `/myworkflow\/.*/`).
     filters:
       branches:
-        - <String>
-        - <String>
-      tags:
-        - <String>
-        - <String>
+        - main
