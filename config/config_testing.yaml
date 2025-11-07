@@ -118,6 +118,12 @@ megahit_assembly:
   threads: 16
   min_contig_len: 1000
   out_prefix: "final"
+## Checkpoint in mag.smk
+assembly_filter:
+  min_total_bp: 50000      # keep samples with ≥ this many total assembled bases
+  min_contigs: 100           # keep samples with ≥ this many contigs
+  min_fasta_bytes: 1       # keep if FASTA file size ≥ this many bytes
+## Continuing mag.smk
 index_assembly:
   threads: 8
 map_reads_to_assembly:

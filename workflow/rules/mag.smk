@@ -35,7 +35,6 @@ rule megahit_assembly:
                 echo "Cleaning up MEGAHIT tmp dir: ${{tmp_dir}}" >> {log}
                 rm -rf -- "${{tmp_dir}}"
             fi
-
             if [[ -n "${{run_dir:-}}" && -d "${{run_dir}}" ]]; then
                 echo "Cleaning up MEGAHIT run dir: ${{run_dir}}" >> {log}
                 rm -rf -- "${{run_dir}}"
@@ -53,17 +52,17 @@ rule megahit_assembly:
           --tmp-dir "$tmp_dir" \
           >> {log} 2>&1
 
-        # MEGAHIT writes {params.out_prefix}.contigs.fa inside out-dir
         src_contigs="$run_dir/{params.out_prefix}.contigs.fa"
+        dest="{output.assembly}"
+
         if [[ ! -s "$src_contigs" ]]; then
-          echo "Expected contigs not found: $src_contigs; creating empty placeholder file" >> {log}
-          : > "{output.assembly}"
-        
-          exit 2
+            echo "No contigs produced; creating empty placeholder: $dest" >> {log}
+            : > "$dest"
+            touch "${{dest}}.EMPTY"
+            echo "Marker file created: ${{dest}}.EMPTY" >> {log}
+            exit 0
         fi
 
-        # Atomic place into final destination (handles cross-filesystem safely)
-        dest="{output.assembly}"
         tmp_dest="${{dest}}.tmp.$$"
         cp --preserve=mode,timestamps "$src_contigs" "$tmp_dest"
         mv -f "$tmp_dest" "$dest"
@@ -72,18 +71,87 @@ rule megahit_assembly:
         """
 checkpoint filter_nonempty_assemblies:
     input:
-        expand(f"{SAMPLE_ASSEMBLY}/{{sample}}_assembly.contigs.fa", sample=SAMPLE_NAMES)
+        # Use the same variable you use elsewhere; adjust SAMPLES/SAMPLE_NAMES accordingly
+        expand(f"{SAMPLE_ASSEMBLY}/{{sample}}_assembly.contigs.fa", sample=SAMPLES)
     output:
-         f"{SAMPLE_ASSEMBLY}/samples_with_contigs.txt"
+        f"{SAMPLE_ASSEMBLY}/samples_with_contigs.txt"
+    params:
+        min_total_bp   = config.get("assembly_filter", {}).get("min_total_bp", 50000),
+        min_contigs    = config.get("assembly_filter", {}).get("min_contigs", 100),
+        min_fasta_bytes= config.get("assembly_filter", {}).get("min_fasta_bytes", 1),
+        # optional sidecar report (not required by Snakemake; purely informational)
+        metrics_tsv    = f"{SAMPLE_ASSEMBLY}/samples_with_contigs.metrics.tsv"
     run:
-        import os
-        valid_samples = []
+        import os, gzip
+
+        def fasta_stats(path):
+            """Return (total_bp, n_contigs). Robust to empty/missing; no Biopython needed."""
+            total_bp = 0
+            n = 0
+            if not os.path.exists(path) or os.path.getsize(path) == 0:
+                return 0, 0
+
+            # Choose opener (supports .gz just in case)
+            opener = gzip.open if path.endswith(".gz") else open
+            try:
+                with opener(path, "rt", encoding="utf-8", errors="ignore") as fh:
+                    in_seq = False
+                    for line in fh:
+                        if not line:
+                            continue
+                        if line.startswith(">"):
+                            n += 1
+                            in_seq = True
+                        else:
+                            if in_seq:
+                                total_bp += len(line.strip())
+                return total_bp, n
+            except Exception:
+                # On parse error, treat as empty so it gets filtered out
+                return 0, 0
+
+        # Build pass/fail list + optional metrics table
+        passed = []
+        metrics_rows = [("sample", "fasta_bytes", "total_bp", "n_contigs", "passed", "reason")]
+
         for infile in input:
-            if os.path.isfile(infile) and os.path.getsize(infile) > 0:
-                sample = os.path.basename(infile).replace("_assembly.contigs.fa", "")
-                valid_samples.append(sample)
+            sample = os.path.basename(infile).replace("_assembly.contigs.fa", "").replace(".gz", "")
+            fasta_bytes = os.path.getsize(infile) if os.path.exists(infile) else 0
+            total_bp, n_contigs = fasta_stats(infile)
+
+            reasons = []
+            ok = True
+
+            if fasta_bytes < params.min_fasta_bytes:
+                ok = False
+                reasons.append(f"bytes<{params.min_fasta_bytes}")
+            if total_bp < params.min_total_bp:
+                ok = False
+                reasons.append(f"bp<{params.min_total_bp}")
+            if n_contigs < params.min_contigs:
+                ok = False
+                reasons.append(f"contigs<{params.min_contigs}")
+
+            reason_str = ",".join(reasons) if reasons else "OK"
+            metrics_rows.append((sample, str(fasta_bytes), str(total_bp), str(n_contigs), "1" if ok else "0", reason_str))
+
+            if ok:
+                passed.append(sample)
+
+        # Write the list used by your helpers (unchanged format)
         with open(output[0], "w") as out:
-            out.write("\n".join(valid_samples) + "\n")
+            out.write("\n".join(passed) + ("\n" if passed else ""))
+
+        # Optional sidecar metrics report for debugging/QA (not a declared output)
+        try:
+            os.makedirs(os.path.dirname(params.metrics_tsv), exist_ok=True)
+            with open(params.metrics_tsv, "w") as m:
+                m.write("\t".join(metrics_rows[0]) + "\n")
+                for row in metrics_rows[1:]:
+                    m.write("\t".join(row) + "\n")
+        except Exception:
+            # Don't fail the checkpoint if the sidecar can't be written
+            pass
 
 rule index_assembly:
     input:
