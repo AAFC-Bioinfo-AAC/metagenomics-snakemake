@@ -69,88 +69,88 @@ rule megahit_assembly:
 
         echo "Placed contigs to: $dest" >> {log}
         """
-checkpoint filter_nonempty_assemblies:
+checkpoint filter_assemblies:
     input:
-        # Use the same variable you use elsewhere; adjust SAMPLES/SAMPLE_NAMES accordingly
         expand(f"{SAMPLE_ASSEMBLY}/{{sample}}_assembly.contigs.fa", sample=SAMPLES)
     output:
-        f"{SAMPLE_ASSEMBLY}/samples_with_contigs.txt"
+        f"{SAMPLE_ASSEMBLY}/passed_checkpoint_assemblies.txt"
     params:
-        min_total_bp   = config.get("assembly_filter", {}).get("min_total_bp", 50000),
-        min_contigs    = config.get("assembly_filter", {}).get("min_contigs", 100),
-        min_fasta_bytes= config.get("assembly_filter", {}).get("min_fasta_bytes", 1),
-        # optional sidecar report (not required by Snakemake; purely informational)
-        metrics_tsv    = f"{SAMPLE_ASSEMBLY}/samples_with_contigs.metrics.tsv"
+        min_len_for_stats = config.get("assembly_filter", {}).get("min_len_for_stats", 2000),
+        min_total_bp      = config.get("assembly_filter", {}).get("min_total_bp", 100000),
+        min_contigs       = config.get("assembly_filter", {}).get("min_contigs", 100),
+        min_fasta_bytes   = config.get("assembly_filter", {}).get("min_fasta_bytes", 1),
+        metrics_tsv       = f"{SAMPLE_ASSEMBLY}/samples_with_contigs.metrics.tsv"
     run:
         import os, gzip
 
-        def fasta_stats(path):
-            """Return (total_bp, n_contigs). Robust to empty/missing; no Biopython needed."""
-            total_bp = 0
-            n = 0
+        def fasta_stats_ge_len(path, minlen):
+            """Return (total_bp_ge_min, n_contigs_ge_min, n_contigs_all).
+               Robust to empty/missing; supports .gz."""
             if not os.path.exists(path) or os.path.getsize(path) == 0:
-                return 0, 0
+                return 0, 0, 0
 
-            # Choose opener (supports .gz just in case)
             opener = gzip.open if path.endswith(".gz") else open
-            try:
-                with opener(path, "rt", encoding="utf-8", errors="ignore") as fh:
-                    in_seq = False
-                    for line in fh:
-                        if not line:
-                            continue
-                        if line.startswith(">"):
-                            n += 1
-                            in_seq = True
-                        else:
-                            if in_seq:
-                                total_bp += len(line.strip())
-                return total_bp, n
-            except Exception:
-                # On parse error, treat as empty so it gets filtered out
-                return 0, 0
+            total = 0
+            n_ge = 0
+            n_all = 0
+            cur_len = 0
+            seen = False
+            with opener(path, "rt", encoding="utf-8", errors="ignore") as fh:
+                for line in fh:
+                    if not line:
+                        continue
+                    if line.startswith(">"):
+                        if seen:
+                            # finalize previous contig
+                            n_all += 1
+                            if cur_len >= minlen:
+                                n_ge += 1
+                                total += cur_len
+                        cur_len = 0
+                        seen = True
+                    else:
+                        cur_len += len(line.strip())
+                # finalize last contig
+                if seen:
+                    n_all += 1
+                    if cur_len >= minlen:
+                        n_ge += 1
+                        total += cur_len
+            return total, n_ge, n_all
 
-        # Build pass/fail list + optional metrics table
         passed = []
-        metrics_rows = [("sample", "fasta_bytes", "total_bp", "n_contigs", "passed", "reason")]
+        rows = [("sample","fasta_bytes","total_bp_ge_min","n_ge_min","n_all","passed","reason")]
 
         for infile in input:
-            sample = os.path.basename(infile).replace("_assembly.contigs.fa", "").replace(".gz", "")
+            sample = os.path.basename(infile).replace("_assembly.contigs.fa", "").replace(".gz","")
             fasta_bytes = os.path.getsize(infile) if os.path.exists(infile) else 0
-            total_bp, n_contigs = fasta_stats(infile)
+            total_bp, n_ge, n_all = fasta_stats_ge_len(infile, params.min_len_for_stats)
 
-            reasons = []
             ok = True
-
+            reasons = []
             if fasta_bytes < params.min_fasta_bytes:
-                ok = False
-                reasons.append(f"bytes<{params.min_fasta_bytes}")
+                ok = False; reasons.append(f"bytes<{params.min_fasta_bytes}")
             if total_bp < params.min_total_bp:
-                ok = False
-                reasons.append(f"bp<{params.min_total_bp}")
-            if n_contigs < params.min_contigs:
-                ok = False
-                reasons.append(f"contigs<{params.min_contigs}")
-
-            reason_str = ",".join(reasons) if reasons else "OK"
-            metrics_rows.append((sample, str(fasta_bytes), str(total_bp), str(n_contigs), "1" if ok else "0", reason_str))
+                ok = False; reasons.append(f"bp≥{params.min_len_for_stats}<{params.min_total_bp}")
+            if n_ge < params.min_contigs:
+                ok = False; reasons.append(f"contigs≥{params.min_len_for_stats}<{params.min_contigs}")
 
             if ok:
                 passed.append(sample)
+            rows.append((sample, str(fasta_bytes), str(total_bp), str(n_ge), str(n_all),
+                         "1" if ok else "0", ",".join(reasons) if reasons else "OK"))
 
-        # Write the list used by your helpers (unchanged format)
         with open(output[0], "w") as out:
             out.write("\n".join(passed) + ("\n" if passed else ""))
 
-        # Optional sidecar metrics report for debugging/QA (not a declared output)
+        # Optional sidecar metrics
         try:
             os.makedirs(os.path.dirname(params.metrics_tsv), exist_ok=True)
             with open(params.metrics_tsv, "w") as m:
-                m.write("\t".join(metrics_rows[0]) + "\n")
-                for row in metrics_rows[1:]:
-                    m.write("\t".join(row) + "\n")
+                m.write("\t".join(rows[0]) + "\n")
+                for r in rows[1:]:
+                    m.write("\t".join(r) + "\n")
         except Exception:
-            # Don't fail the checkpoint if the sidecar can't be written
             pass
 
 rule index_assembly:
