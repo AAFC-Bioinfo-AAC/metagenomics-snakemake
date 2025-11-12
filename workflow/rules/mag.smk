@@ -119,26 +119,46 @@ checkpoint filter_assemblies:
             return total, n_ge, n_all
 
         passed = []
-        rows = [("sample","fasta_bytes","total_bp_ge_min","n_ge_min","n_all","passed","reason")]
+        # More descriptive column names
+        rows = [(
+            "sample",
+            "fasta_file_bytes",
+            f"total_bp_ge{params.min_len_for_stats}bp",
+            f"num_contigs_ge{params.min_len_for_stats}bp",
+            "num_contigs_total",
+            "passed_filter",
+            "filter_failure_reason"
+        )]
 
         for infile in input:
             sample = os.path.basename(infile).replace("_assembly.contigs.fa", "").replace(".gz","")
             fasta_bytes = os.path.getsize(infile) if os.path.exists(infile) else 0
-            total_bp, n_ge, n_all = fasta_stats_ge_len(infile, params.min_len_for_stats)
+            total_bp, num_contigs_passing_filter, num_contigs_total = fasta_stats_ge_len(infile, params.min_len_for_stats)
 
             ok = True
             reasons = []
             if fasta_bytes < params.min_fasta_bytes:
-                ok = False; reasons.append(f"bytes<{params.min_fasta_bytes}")
+                ok = False
+                reasons.append(f"file_size<{params.min_fasta_bytes}B")
             if total_bp < params.min_total_bp:
-                ok = False; reasons.append(f"bp≥{params.min_len_for_stats}<{params.min_total_bp}")
-            if n_ge < params.min_contigs:
-                ok = False; reasons.append(f"contigs≥{params.min_len_for_stats}<{params.min_contigs}")
+                ok = False
+                reasons.append(f"total_bp_≥{params.min_len_for_stats}bp<{params.min_total_bp}")
+            if num_contigs_passing_filter < params.min_contigs:
+                ok = False
+                reasons.append(f"num_contigs_≥{params.min_len_for_stats}bp<{params.min_contigs}")
 
             if ok:
                 passed.append(sample)
-            rows.append((sample, str(fasta_bytes), str(total_bp), str(n_ge), str(n_all),
-                         "1" if ok else "0", ",".join(reasons) if reasons else "OK"))
+            
+            rows.append((
+                sample,
+                str(fasta_bytes),
+                str(total_bp),
+                str(num_contigs_passing_filter),
+                str(num_contigs_total),
+                "PASS" if ok else "FAIL",
+                ",".join(reasons) if reasons else "OK"
+            ))
 
         with open(output[0], "w") as out:
             out.write("\n".join(passed) + ("\n" if passed else ""))
