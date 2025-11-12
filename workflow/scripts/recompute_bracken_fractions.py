@@ -29,13 +29,18 @@ outputs = {
 domain_df = pd.read_csv(domain_path, sep='\t')
 
 def extract_sample_id(col):
-    # Extracts e.g. H5CK2004RP4D70 from H5CK2004RP4D70_bracken.*.txt_num
-    m = re.match(r"^([A-Za-z0-9]+)_bracken", col)
+    # Extracts the full sample ID before _bracken
+    # e.g., test_SUB2008RP9D70 or H5CK2004RP4D70 from *_bracken.*.txt_num
+    m = re.match(r"^(.+?)_bracken", col)
     return m.group(1) if m else None
 
 # Build a {sample_id: domain_col} map for *_num in domain table
 domain_num_cols = [c for c in domain_df.columns if c.endswith('_num')]
 domain_col_for_sample = {extract_sample_id(c):c for c in domain_num_cols if extract_sample_id(c)}
+
+print("DEBUG: Detected sample IDs from domain table:")
+for sample_id in domain_col_for_sample.keys():
+    print(f"  - {sample_id}")
 
 # Compute prokaryote (Bacteria+Archaea) total for each sample_id
 prokaryote_totals = {}
@@ -43,6 +48,7 @@ for sample_id, col in domain_col_for_sample.items():
     total = float(domain_df.loc[domain_df['name'] == 'Bacteria', col].values.sum()) + \
             float(domain_df.loc[domain_df['name'] == 'Archaea', col].values.sum())
     prokaryote_totals[sample_id] = total
+    print(f"DEBUG: {sample_id} -> prokaryote total = {total}")
 
 def adjust_table(infile, outfile, prokaryote_totals, level):
     df = pd.read_csv(infile, sep='\t')
@@ -58,11 +64,12 @@ def adjust_table(infile, outfile, prokaryote_totals, level):
         if total is not None and total > 0:
             new_cols[new_col] = df[col].astype(float) / total
         else:
-            new_cols[new_col] = 0.0
+            # Create a Series of zeros with the same index as df
+            new_cols[new_col] = pd.Series(0.0, index=df.index)
             print(f"WARNING: No matching prokaryote total for {col} (sample_id={sample_id}), all zeros.")
 
     # Add all new columns at once for performance
-    adjusted_df = pd.DataFrame(new_cols)
+    adjusted_df = pd.DataFrame(new_cols, index=df.index)
     df = pd.concat([df, adjusted_df], axis=1)
 
     # QC: check sum per fractional column

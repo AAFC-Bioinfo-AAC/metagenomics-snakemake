@@ -1,0 +1,4 @@
+sample,fastq_1,fastq_2
+test_SUB2008RP9D70,test_SUB2008RP9D70_R1.fastq.gz,test_SUB2008RP9D70_R2.fastq.gz
+test_H5CK2832RP2D70,NS.X0182.004.IDT_i7_281---IDT_i5_281.H5CK2832RP2D70_R1.fastq.gz,NS.X0182.004.IDT_i7_281---IDT_i5_281.H5CK2832RP2D70_R2.fastq.gz
+RNA,test_LLC81Sep06C_rRNAdep_R1.fastq.gz,test_LLC81Sep06C_rRNAdep_R2.fastq.gz

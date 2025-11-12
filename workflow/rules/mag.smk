@@ -35,7 +35,6 @@ rule megahit_assembly:
                 echo "Cleaning up MEGAHIT tmp dir: ${{tmp_dir}}" >> {log}
                 rm -rf -- "${{tmp_dir}}"
             fi
-
             if [[ -n "${{run_dir:-}}" && -d "${{run_dir}}" ]]; then
                 echo "Cleaning up MEGAHIT run dir: ${{run_dir}}" >> {log}
                 rm -rf -- "${{run_dir}}"
@@ -53,37 +52,126 @@ rule megahit_assembly:
           --tmp-dir "$tmp_dir" \
           >> {log} 2>&1
 
-        # MEGAHIT writes {params.out_prefix}.contigs.fa inside out-dir
         src_contigs="$run_dir/{params.out_prefix}.contigs.fa"
+        dest="{output.assembly}"
+
         if [[ ! -s "$src_contigs" ]]; then
-          echo "Expected contigs not found: $src_contigs; creating empty placeholder file" >> {log}
-          : > "{output.assembly}"
-        
-          exit 2
+            echo "No contigs produced; creating empty placeholder: $dest" >> {log}
+            : > "$dest"
+            touch "${{dest}}.EMPTY"
+            echo "Marker file created: ${{dest}}.EMPTY" >> {log}
+            exit 0
         fi
 
-        # Atomic place into final destination (handles cross-filesystem safely)
-        dest="{output.assembly}"
         tmp_dest="${{dest}}.tmp.$$"
         cp --preserve=mode,timestamps "$src_contigs" "$tmp_dest"
         mv -f "$tmp_dest" "$dest"
 
         echo "Placed contigs to: $dest" >> {log}
         """
-checkpoint filter_nonempty_assemblies:
+checkpoint filter_assemblies:
     input:
-        expand(f"{SAMPLE_ASSEMBLY}/{{sample}}_assembly.contigs.fa", sample=SAMPLE_NAMES)
+        expand(f"{SAMPLE_ASSEMBLY}/{{sample}}_assembly.contigs.fa", sample=SAMPLES)
     output:
-         f"{SAMPLE_ASSEMBLY}/samples_with_contigs.txt"
+        f"{SAMPLE_ASSEMBLY}/passed_checkpoint_assemblies.txt"
+    params:
+        min_len_for_stats = config.get("assembly_filter", {}).get("min_len_for_stats", 2000),
+        min_total_bp      = config.get("assembly_filter", {}).get("min_total_bp", 100000),
+        min_contigs       = config.get("assembly_filter", {}).get("min_contigs", 100),
+        min_fasta_bytes   = config.get("assembly_filter", {}).get("min_fasta_bytes", 1),
+        metrics_tsv       = f"{SAMPLE_ASSEMBLY}/samples_with_contigs.metrics.tsv"
     run:
-        import os
-        valid_samples = []
+        import os, gzip
+
+        def fasta_stats_ge_len(path, minlen):
+            """Return (total_bp_ge_min, n_contigs_ge_min, n_contigs_all).
+               Robust to empty/missing; supports .gz."""
+            if not os.path.exists(path) or os.path.getsize(path) == 0:
+                return 0, 0, 0
+
+            opener = gzip.open if path.endswith(".gz") else open
+            total = 0
+            n_ge = 0
+            n_all = 0
+            cur_len = 0
+            seen = False
+            with opener(path, "rt", encoding="utf-8", errors="ignore") as fh:
+                for line in fh:
+                    if not line:
+                        continue
+                    if line.startswith(">"):
+                        if seen:
+                            # finalize previous contig
+                            n_all += 1
+                            if cur_len >= minlen:
+                                n_ge += 1
+                                total += cur_len
+                        cur_len = 0
+                        seen = True
+                    else:
+                        cur_len += len(line.strip())
+                # finalize last contig
+                if seen:
+                    n_all += 1
+                    if cur_len >= minlen:
+                        n_ge += 1
+                        total += cur_len
+            return total, n_ge, n_all
+
+        passed = []
+        # More descriptive column names
+        rows = [(
+            "sample",
+            "fasta_file_bytes",
+            f"total_bp_ge{params.min_len_for_stats}bp",
+            f"num_contigs_ge{params.min_len_for_stats}bp",
+            "num_contigs_total",
+            "passed_filter",
+            "filter_failure_reason"
+        )]
+
         for infile in input:
-            if os.path.isfile(infile) and os.path.getsize(infile) > 0:
-                sample = os.path.basename(infile).replace("_assembly.contigs.fa", "")
-                valid_samples.append(sample)
+            sample = os.path.basename(infile).replace("_assembly.contigs.fa", "").replace(".gz","")
+            fasta_bytes = os.path.getsize(infile) if os.path.exists(infile) else 0
+            total_bp, num_contigs_passing_filter, num_contigs_total = fasta_stats_ge_len(infile, params.min_len_for_stats)
+
+            ok = True
+            reasons = []
+            if fasta_bytes < params.min_fasta_bytes:
+                ok = False
+                reasons.append(f"file_size<{params.min_fasta_bytes}B")
+            if total_bp < params.min_total_bp:
+                ok = False
+                reasons.append(f"total_bp_≥{params.min_len_for_stats}bp<{params.min_total_bp}")
+            if num_contigs_passing_filter < params.min_contigs:
+                ok = False
+                reasons.append(f"num_contigs_≥{params.min_len_for_stats}bp<{params.min_contigs}")
+
+            if ok:
+                passed.append(sample)
+            
+            rows.append((
+                sample,
+                str(fasta_bytes),
+                str(total_bp),
+                str(num_contigs_passing_filter),
+                str(num_contigs_total),
+                "PASS" if ok else "FAIL",
+                ",".join(reasons) if reasons else "OK"
+            ))
+
         with open(output[0], "w") as out:
-            out.write("\n".join(valid_samples) + "\n")
+            out.write("\n".join(passed) + ("\n" if passed else ""))
+
+        # Optional sidecar metrics
+        try:
+            os.makedirs(os.path.dirname(params.metrics_tsv), exist_ok=True)
+            with open(params.metrics_tsv, "w") as m:
+                m.write("\t".join(rows[0]) + "\n")
+                for r in rows[1:]:
+                    m.write("\t".join(r) + "\n")
+        except Exception:
+            pass
 
 rule index_assembly:
     input:

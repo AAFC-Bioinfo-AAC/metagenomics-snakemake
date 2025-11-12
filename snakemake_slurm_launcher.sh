@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=All_samples_2025-10-15
+#SBATCH --job-name=final_test_2bad_samples_1good
 #SBATCH --output=%x_%A_%a.out
 #SBATCH --error=%x_%A_%a.err
 #SBATCH --cluster=gpsc8
@@ -15,7 +15,7 @@ export PATH="$PWD/bin:$PATH"
 
   snakemake \
     --profile /gpfs/fs7/aafc/projects/J-003518_afc_rdar_malate/code/metagenomics-snakemake/profiles/slurm \
-    --configfile /gpfs/fs7/aafc/projects/J-003518_afc_rdar_malate/code/metagenomics-snakemake/config/config.yaml \
+    --configfile /gpfs/fs7/aafc/projects/J-003518_afc_rdar_malate/code/metagenomics-snakemake/config/config_testing.yaml \
     --conda-prefix /gpfs/fs7/aafc/projects/J-003518_afc_rdar_malate/code/malate-smk-conda-env \
     --printshellcmds \
     --latency-wait 120 

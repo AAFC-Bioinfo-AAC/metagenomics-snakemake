@@ -1,4 +1,4 @@
-configfile: "config/config.yaml"
+configfile: "config/config_testing.yaml"
 
 from dotenv import load_dotenv
 import csv, os, sys
@@ -23,12 +23,9 @@ CONFIG_DIR     = os.path.join(PIPELINE_DIR, "config")
 # TMPDIR setup
 # -------------------------------------------------------------------
 
-user = os.environ.get("USER")
-if not user:
-    raise ValueError("Environment variable USER is not set.")
-
-fallback_tmpdir = f"/gpfs/fs7/aafc/scratch/{user}/tmpdir/malate"
-TMPDIR = os.path.expandvars(os.getenv("TMPDIR", fallback_tmpdir))
+TMPDIR = os.getenv("TMPDIR")
+if not TMPDIR:
+    raise ValueError("Environment variable TMPDIR is not set.")
 os.makedirs(TMPDIR, exist_ok=True)
 
 # -------------------------------------------------------------------
@@ -125,17 +122,11 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "scripts"))
 from scripts.helpers import bowtie2_index_files, parse_filtered_samples
 
 def get_filtered_samples(wildcards):
-    ckpt_output = checkpoints.filter_nonempty_assemblies.get(**wildcards).output[0]
+    ckpt_output = checkpoints.filter_assemblies.get().output[0]
     return parse_filtered_samples(ckpt_output)
 
 def get_filtered_list_file(wildcards):
-    return checkpoints.filter_nonempty_assemblies.get(**wildcards).output[0]
-
-def get_all_bowtie2_indices(wildcards):
-    return [
-        f for s in get_filtered_samples(wildcards)
-        for f in bowtie2_index_files(s, SAMPLE_ASSEMBLY)
-    ]
+    return checkpoints.filter_assemblies.get().output[0]
 
 # -------------------------------------------------------------------
 # Rules
@@ -143,7 +134,7 @@ def get_all_bowtie2_indices(wildcards):
 include: "rules/preprocessing.smk"
 include: "rules/taxonomy.smk"
 include: "rules/amr_short_reads.smk"
-include: "rules/kegg.smk"  #KEGG DATABASE NOT ACCESSIBLE
+include: "rules/kegg.smk" 
 include: "rules/mag.smk"
 include: "rules/env_versions.smk"
 
@@ -206,16 +197,21 @@ rule all:
         f"{KEGG_OUTPUT_DIR}/combined_ko_pathway_abundance_with_category_filtered.tsv",
 
         # Individual assemblies with MEGAHIT
-        expand(f"{SAMPLE_ASSEMBLY}/{{sample}}_assembly.contigs.fa", sample=SAMPLES),
-        expand(f"{SAMPLE_ASSEMBLY}/{{sample}}.bam", sample=SAMPLES),
-        expand(f"{SAMPLE_ASSEMBLY}/metabat2/{{sample}}/{{sample}}_depth.txt", sample=SAMPLES),
-        expand(f"{SAMPLE_ASSEMBLY}/metabat2/{{sample}}/bins", sample=SAMPLES),
-        expand(f"{SAMPLE_ASSEMBLY}/metabat2/{{sample}}/unbinned", sample=SAMPLES),
-        expand(f"{SAMPLE_ASSEMBLY}/metabat2/{{sample}}/checkm2/", sample=SAMPLES),
-        expand(f"{SAMPLE_ASSEMBLY}/metabat2/{{sample}}/checkm2/quality_report.tsv", sample=SAMPLES),
-
-        # Bowtie2 indices for non-empty assemblies only
-        get_all_bowtie2_indices,
+        # Individual assemblies with MEGAHIT (only samples that produced contigs)
+        lambda wc: expand(f"{SAMPLE_ASSEMBLY}/{{sample}}_assembly.contigs.fa",
+                          sample=get_filtered_samples(wc)),
+        lambda wc: expand(f"{SAMPLE_ASSEMBLY}/{{sample}}.bam",
+                          sample=get_filtered_samples(wc)),
+        lambda wc: expand(f"{SAMPLE_ASSEMBLY}/metabat2/{{sample}}/{{sample}}_depth.txt",
+                          sample=get_filtered_samples(wc)),
+        lambda wc: expand(f"{SAMPLE_ASSEMBLY}/metabat2/{{sample}}/bins",
+                          sample=get_filtered_samples(wc)),
+        lambda wc: expand(f"{SAMPLE_ASSEMBLY}/metabat2/{{sample}}/unbinned",
+                          sample=get_filtered_samples(wc)),
+        lambda wc: expand(f"{SAMPLE_ASSEMBLY}/metabat2/{{sample}}/checkm2/",
+                          sample=get_filtered_samples(wc)),
+        lambda wc: expand(f"{SAMPLE_ASSEMBLY}/metabat2/{{sample}}/checkm2/quality_report.tsv",
+                          sample=get_filtered_samples(wc)),
 
         # Required logs or done markers
         f"{LOG_DIR}/rgi_reload_db.done",

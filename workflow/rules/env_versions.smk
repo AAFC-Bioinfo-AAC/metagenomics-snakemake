@@ -51,7 +51,7 @@ rule filter_key_bioinformatics_versions:
         echo "==========================================================" >> {output}
         echo "" >> {output}
 
-        KEY_TOOLS="bedtools|bowtie2|fastp|featureCounts|kraken2|megahit|pigz|prodigal|rgi|rnaQUAST|samtools|sortmerna|spades|subread"
+        KEY_TOOLS="bedtools|bowtie2|checkm2|fastp|diamond|kraken2|megahit|metabat2||minpath|pigz|rgi|samtools"
 
         awk '
           /^### Environment:/ {{env=$0; print "\n" env >> "{output}"; next}}
