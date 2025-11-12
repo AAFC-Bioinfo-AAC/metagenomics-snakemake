@@ -1,7 +1,8 @@
 # Snakemake Profile for running on SLURM
 
-## Directory layout 
-```
+## Directory layout
+
+``` bash
 metagenomics_pipeline/
 ├── Workflow/
 │   └── Snakemake
@@ -24,179 +25,86 @@ metagenomics_pipeline/
 ```
 
 ## Main profile
+
 - Controls how Snakemake schedules jobs on SLURM
-- Must invoke with ` --profile /absolute/path/to/the/my_pipeline/profiles/slurm`
+- Must invoke with `--profile /absolute/path/to/the/my_pipeline/profiles/slurm`
+
 ### Example Profile
+
 `profiles/slurm/config.yaml`
+
 ```bash
-###How Snakemake assign resources to rules ###
-cores: 60 # total number of cores Snakemake can request at any time
-jobs: 10 # max amount of jobs Snakemake runs at once
-latency-wait: 60 # gives time for containers to start, and for other I/O delays
+## For Snakemake to recognize this file it must be named config.yaml.
+## Specific information to our HPC configuration has been replaced in this example with <CAPITAL LETTERS>
+## Please edit to include the configuration of the cluster you are using
+
+### How Snakemake will run on SBATCH ###
+cores: 60
+jobs: 10 
+latency-wait: 60 
 rerun-incomplete: true
-quiet: false # Makes Snakemake output more verbose about its operations
-retries: 2               # so jobs killed by IO hiccups are auto retried
-max-jobs-per-second: 2  # slowing down submission rate (tune for your site!)
-executor: slurm 
+retries: 2              
+max-jobs-per-second: 2 
+executor: slurm
+
+# Prevent rerunning jobs just for Snakefile edits
+## flags available [input, mtime, params, software-env, code, resources, none]
+rerun-triggers: [input, params, software-env]
 
 ### Env Vars ###
 envvars:
-  TMPDIR: "/gpfs/fs7/aafc/scratch/$USER/tmpdir"
+  TMPDIR: "/<PATH>/<TO>/<SCRATCH>/${USER}/tmpdir"
 
 default-resources:
-  - mem_mb=8000             
-  - slurm_partition=standard  # SLURM partition to use by default
-  - slurm_account=aafc_aac # SLURM account
-  - slurm_cluster=gpsc8 #SLURM cluster
-  - runtime=60       # minutes
-  - mem_mb=4000 # default memory per job (change as desired)
-  - cpus=1
+  - slurm_account=<ACCOUNT_NAME>
+  - slurm_partition=<PARTITION_NAME>
+  - slurm_cluster=<CLUSTER_NAME>
+  - slurm_qos=<QOS_LEVEL>      # e.g., 'low' if jobs are held in queue for long
+  - runtime=<RUNTIME_MINUTES>  # e.g., 60
+  - mem_mb=<MEMORY_MB>         # e.g., 4000
 
 ### Env modules ###
-# use-envmodules: false # use-envmodules: true only if: Your system disables Conda/containers and expects you to use module load bioinfo-tool for each step or you have a properly configured profile and know which modules are needed for every rule.
+# use-envmodules: false 
 
 ### Conda ###
 use-conda: true
-conda-frontend: mamba   # if you have mamba installed
+conda-frontend: mamba   
 
 ### Resource scopes ###
-# Affects how Snakemake defines resource limits
-# Note that cores and threads are always considered local 
-# set-resource-scopes:
-    cores: local 
+set-resource-scopes:
+  cores: local 
 
-### Containerization if using containers like Docker ###
-# use-singularity: true 
-# singularity-prefix-dir: 
-# singularity-args:
-# cleanup-containers: false 
+# Reusable Slurm Blocks (anchors)
+# Standard partition/account/cluster used by most rules
+_slurm_std: &slurm_std
+  slurm_partition: <PARTITION_NAME>
+  slurm_account: <ACCOUNT_NAME_standard> # e.g., standard, large memory 
+  slurm_cluster: <CLUSTER_NAME>
 
-### Rule-specific configs ###
-# These go into the cluster_config.yaml
+# Large memory partition/account/cluster used by some rules
+_slurm_large: &slurm_large
+  slurm_partition: <PARTITION_NAME>
+  slurm_account: <ACCOUNT_NAME_large> # e.g., standard, large memory 
+  slurm_cluster: <CLUSTER_NAME>
+
 ## Per rule resources
 set-resources:
   fastp_pe:
-    cpus: 2
+    <<: *slurm_std
     mem_mb: 4000
     runtime: 40
-    slurm_partition: standard
-    slurm_account: aafc_aac
 
   bowtie2_align:
-    cpus: 24
-    mem_mb: 48000
-    runtime: 30
-    slurm_partition: standard
-    slurm_account: aafc_aac
+    <<: *slurm_std
+    mem_mb: 24000
+    runtime: 90
 
   extract_unmapped_fastq:
-    cpus: 60
-    mem_mb: 64000
-    runtime: 30
-    slurm_partition: standard
-    slurm_account: aafc_aac
-
-  sortmerna_pe:
-    cpus: 48
-    mem_mb: 32000
-    runtime: 360
-    slurm_partition: standard
-    slurm_account: aafc_aac
+    <<: *slurm_std
+    mem_mb: 18000
+    runtime: 60
 
   kraken2:
-    cpus: 2
-    mem_mb: 600000
-    runtime: 30 
-    slurm_partition: large
-    slurm_account: aafc_aac__large
-
-  bracken:
-    cpus: 2
-    mem_mb: 4000
-    runtime: 10
-    slurm_partition: standard
-    slurm_account: aafc_aac
-
-  combine_bracken_outputs:
-    cpus: 1
-    mem_mb: 2000
-    runtime: 20
-    slurm_partition: standard
-    slurm_account: aafc_aac
-   
-  bracken_extract:
-    cpus: 1
-    mem_mb: 2000
-    runtime: 10
-    slurm_partition: standard
-    slurm_account: aafc_aac
-
-  rgi_reload_database:
-    cpus: 1
-    mem_mb: 2000
-    runtime: 30
-    slurm_partition: standard
-    slurm_account: aafc_aac
-
-  rgi_bwt:
-    cpus: 20
-    mem_mb: 64000
-    runtime: 60
-    slurm_partition: standard
-    slurm_account: aafc_aac
-
-  rna_spades:             
-    cpus: 48
-    mem_mb: 64000
-    runtime: 240
-    slurm_partition: standard
-    slurm_account: aafc_aac
-
-  rnaquast_busco:
-    cpus: 4
-    mem_mb: 16000
-    runtime: 10
-    slurm_partition: standard
-    slurm_account: aafc_aac
-
-  megahit_coassembly:
-    cpus: 48
-    mem_mb: 256000
-    runtime: 240
-    slurm_partition: standard
-    slurm_account: aafc_aac
-
-  index_coassembly:
-    cpus: 8
-    mem_mb: 16000
+    <<: *slurm_large
+    mem_mb: 840000
     runtime: 120
-    slurm_partition: standard
-    slurm_account: aafc_aac
-
-  bowtie2_map_transcripts:
-    cpus: 16
-    mem_mb: 32000
-    runtime: 30
-    slurm_partition: standard
-    slurm_account: aafc_aac
-
-  assembly_stats_depth:
-    cpus: 2
-    mem_mb: 2000
-    runtime: 30
-    slurm_partition: standard
-    slurm_account: aafc_aac
-
-  prodigal_genes:
-    cpus: 1
-    mem_mb: 2000
-    runtime: 60
-    slurm_partition: standard
-    slurm_account: aafc_aac
-
-  featurecounts:
-    cpus: 4
-    mem_mb: 8000
-    runtime: 10
-    slurm_partition: standard
-    slurm_account: aafc_aac
