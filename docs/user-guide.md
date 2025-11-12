@@ -51,6 +51,28 @@
 ### Workflow diagram
 
 ```mermaid
+---
+config:
+  theme: base
+  themeVariables:
+    darkMode: true
+    background: '#0c111b'
+    mainBkg: '#0c111b'
+    textColor: '#e5e7eb'
+    titleColor: '#f3f4f6'
+
+    primaryColor: '#1f2937'
+    primaryTextColor: '#e5e7eb'
+    primaryBorderColor: '#F8B229'
+
+    secondaryColor: '#111827'
+    secondaryBorderColor: '#2d3748'
+
+    tertiaryColor: '#0b1324'
+    tertiaryBorderColor: '#374151'
+
+    lineColor: '#F8B229'
+---
 flowchart TD
 
     subgraph PREPROC ["<b>Pre-processing</b>"]
@@ -90,18 +112,9 @@ flowchart TD
         W2 --> X((Functional Categories))
     end
 
-
     %% TEMP FILE STYLING
-    style C fill:#f2f2f2,stroke-dasharray: 5 5
-    style L1 fill:#f2f2f2,stroke-dasharray: 5 5
-
-    style PREPROC fill:#f0f8ff,stroke:#4682b4,stroke-width:2px
-    style MAGS fill:#f9f9f9,stroke:#2e8b57,stroke-width:2px
-    style QC_REPORTS fill:#fff8dc,stroke:#d2691e,stroke-width:2px
-
-    %%{init: {"flowchart": {"curve": "basis", "nodeSpacing": 50, "rankSpacing": 80}}}%%
-
-
+    style C fill:#1f2937,stroke:#22d3ee,stroke-dasharray: 5 5,color:#e5e7eb
+    style L1 fill:#1f2937,stroke:#22d3ee,stroke-dasharray: 5 5,color:#e5e7eb
 ```
 
 ### Snakemake rules
