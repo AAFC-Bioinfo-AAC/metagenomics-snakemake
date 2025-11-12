@@ -32,3 +32,8 @@ single_sample_dag.svg
 snakemake_slurm_launcher.sh
 =1.6.0
 
+##config files with abs paths
+config_project_samples.yaml
+config_testing.yaml
+profile/slurm/config.yaml
+
