@@ -205,7 +205,7 @@ The pipeline is modularized, with each module located in the `metagenomics-snake
     - Phylum level: `merged_abundance_phylum_cleaned.txt`
     - Domain level: `merged_abundance_domain_cleaned.txt`
 - **Notes:**
-  - The script `clean_bracken_batch.py` contains the taxa filters that can be edited. Maybe these could be included in the config file so the script doesn't need to be modified.
+  - The script `clean_bracken_batch.py` uses the taxa filters provided in the `config/config.yaml`.
 
 **Rule: `bracken_recompute_fractions` *Relative abundance using only prokaryotic reads***
 
@@ -523,7 +523,7 @@ The `config/config.yaml` file contains the editable pipeline parameters, thread 
 
 |Module | Rule | File | Description|
 |------|------|------|-------------|
-|taxonomy.smk| clean_host_bracken | workflow/scripts/clean_bracken_batch.py| This script removes the host taxa from Bracken output files (as defined in the TAXA_FILTERS). Then the samples are re-normalized using the total remaining read counts. It is clearly indicated in the script where to edit the filter lists.|
+|taxonomy.smk| clean_host_bracken | workflow/scripts/clean_bracken_batch.py| This script removes the host taxa from Bracken output files. Taxonomy to be removed at each level is set in the `config/config.yaml`. Then the samples are re-normalized using the total remaining read counts. It is clearly indicated in the script where to edit the filter lists.|
 |kegg.smk| filter_combined_kegg_table | resources/KEGG_BRITE_pathway_exclusion_file.txt| The exclusion list removes non-prokaryotic pathways from the analysis. This tab-delimited file contains two columns: "Pathway_ID" and "Pathway_Name". The "Pathway_ID" is a four-digit string (e.g., 00073, 05418) that corresponds to the [KEGG Pathway Map](https://www.genome.jp/kegg-bin/get_htext?br08901.keg).|
 
 ---
@@ -705,6 +705,7 @@ The `config.yaml` file must be located in the `config` directory, which resides 
 - Path to the `samples.txt`
 - Input and output directories
 - File paths to required databases
+- Taxonomy to be removed from bracken output at the phylum, genus and species level.
 - Threads for each rule
 - Parameters for software see the [Parameters](#parameters) section **NEED TO UPDATE RULES**
 
