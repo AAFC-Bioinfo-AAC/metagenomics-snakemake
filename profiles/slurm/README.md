@@ -1,7 +1,8 @@
 # Snakemake Profile for running on SLURM
 
-## Directory layout 
-```
+## Directory layout
+
+``` bash
 metagenomics_pipeline/
 ├── Workflow/
 │   └── Snakemake
@@ -24,10 +25,14 @@ metagenomics_pipeline/
 ```
 
 ## Main profile
+
 - Controls how Snakemake schedules jobs on SLURM
-- Must invoke with ` --profile /absolute/path/to/the/my_pipeline/profiles/slurm`
+- Must invoke with `--profile /absolute/path/to/the/my_pipeline/profiles/slurm`
+
 ### Example Profile
+
 `profiles/slurm/config.yaml`
+
 ```bash
 ## For Snakemake to recognize this file it must be named config.yaml.
 ## Specific information to our HPC configuration has been replaced in this example with <CAPITAL LETTERS>
