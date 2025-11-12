@@ -30,3 +30,4 @@ single_sample.dot
 .gitignore
 single_sample_dag.svg
 snakemake_slurm_launcher.sh
+snakemake_slurm_launcher.sh

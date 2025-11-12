@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=test_set
+#SBATCH --job-name=final_test_2bad_samples_1good
 #SBATCH --output=%x_%A_%a.out
 #SBATCH --error=%x_%A_%a.err
 #SBATCH --cluster=gpsc8
