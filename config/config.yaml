@@ -45,6 +45,25 @@ kegg_brite_hierarchy: "abs/path/to/db/reference/kegg/brite/ko"
 checkm2_DB: "abs/path/to/db/reference/CheckM2_database/uniref100.KO.1.dmnd"
 
 # -------------------------------------------------------------------
+# Bracken taxonomy filtering parameters used by clean_host_bracken rule
+# -------------------------------------------------------------------
+# These taxa will be removed from Bracken output at each taxonomic level
+taxa_filters:
+  domain:
+    - "Eukaryota"
+  phylum:
+    - "Chordata"
+  genus:
+    - "Bos"
+    - "Sus"
+    - "Homo"
+  species:
+    - "Bos taurus"
+    - "Bos indicus"
+    - "Sus scrofa"
+    - "Homo sapiens"
+    
+# -------------------------------------------------------------------
 # Parameters and threads 
 # See the user documentation parameters section
 # -------------------------------------------------------------------

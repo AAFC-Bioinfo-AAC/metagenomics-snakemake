@@ -1,4 +1,4 @@
-configfile: "config/config_testing.yaml"
+configfile: "config/config.yaml"
 
 from dotenv import load_dotenv
 import csv, os, sys

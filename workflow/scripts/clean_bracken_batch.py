@@ -11,20 +11,12 @@ import sys
 if hasattr(snakemake, "log") and snakemake.log:
     sys.stdout = open(snakemake.log[0], "w")
     sys.stderr = sys.stdout
-##########################################################################################
-## EDIT TAXA FILTERS HERE.
-## These taxa will be removed from the Bracken output at each taxonomic level
-## Leave the taxonomy levels "domain", "phylum", "genus", "species" as-is.
-## Change only the lists of taxa to filter out. The things in the [] are exact matches to the 'name' column in Bracken output.
 
-# Define taxa to filter at each level
-TAXA_FILTERS = {
-    "domain": ["Eukaryota"],         # keep only prokaryotes in domain tables
-    "phylum": ["Chordata"],
-    "genus": ["Bos", "Sus", "Homo"],
-    "species": ["Bos taurus", "Bos indicus", "Sus scrofa", "Homo sapiens"]
-}
 ##########################################################################################
+## Taxa filters are now read from config.yaml
+## Edit the config file to change which taxa are filtered at each level
+##########################################################################################
+
 def recompute_fracs_from_nums(df: pd.DataFrame) -> pd.DataFrame:
     """
     For each sample, sets '<sample>..._frac' = '<sample>..._num' / sum('<sample>..._num').
@@ -48,6 +40,9 @@ def clean_bracken_data(df: pd.DataFrame, host_taxa: list) -> pd.DataFrame:
     return df_filtered
 
 def main():
+    # Read taxa filters from config
+    TAXA_FILTERS = snakemake.config.get("taxa_filters", {})
+    
     # For each level defined in input
     for level in ("species", "genus", "phylum", "domain"):
         # Only proceed if the rule actually specified this level
@@ -55,9 +50,10 @@ def main():
             continue
         in_file = snakemake.input[level]
         out_file = snakemake.output[level]
-        host_taxa = TAXA_FILTERS[level]
+        host_taxa = TAXA_FILTERS.get(level, [])
 
         print(f"Processing {level}: {in_file} -> {out_file}")
+        print(f"Filtering taxa: {host_taxa}")
 
         df = pd.read_csv(in_file, sep='\t')
         cleaned = clean_bracken_data(df, host_taxa)
