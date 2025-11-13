@@ -532,8 +532,6 @@ The `config/config.yaml` file contains the editable pipeline parameters, thread 
 
 ## Filters and exclusion lists
 
-- **SEE What can be put in confug file**
-
 |Module | Rule | File | Description|
 |------|------|------|-------------|
 |taxonomy.smk| clean_host_bracken | workflow/scripts/clean_bracken_batch.py| This script removes the host taxa from Bracken output files. Taxonomy to be removed at each level is set in the `config/config.yaml`. Then the samples are re-normalized using the total remaining read counts. It is clearly indicated in the script where to edit the filter lists.|
