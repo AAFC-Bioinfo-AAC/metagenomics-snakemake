@@ -772,12 +772,12 @@ Snakemake can automatically create and load Conda environments for each rule in 
 - `python3.yaml`
 - `rgi.yaml`
 
-Load the required conda environments for the pipeline with:
+Load the required conda environments for the pipeline from the main snakemake directory.
 
 ```bash
 snakemake --use-conda \
   --conda-create-envs-only \
-  --conda-prefix path/to/common/lab/folder/conda/metatranscriptomics-snakemake-conda
+  --conda-prefix path/to/common/lab/folder/conda/metag-snakemake-conda
 ```
 
 ##### 4.2. SLURM launcher
