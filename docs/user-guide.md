@@ -707,18 +707,18 @@ set-resources:
 
 #### 3. Configuration
 
-The pipeline requires the following configuration files: `config.yaml`, `.env`, and `samples.txt`.
+The pipeline requires the following configuration files: `config.yaml`, `.env`, and `samplesheet.csv`.
 
 ##### 3.1. config/config.yaml
 
 The `config.yaml` file must be located in the `config` directory, which resides in the main Snakemake working directory. This file specifies crucial settings, including:
 
-- Path to the `samples.txt`
+- Path to the `samplesheet.csv`
 - Input and output directories
 - File paths to required databases
 - Taxonomy to be removed from bracken output at the phylum, genus and species level.
 - Threads for each rule
-- Parameters for software see the [Parameters](#parameters) section **NEED TO UPDATE RULES**
+- Parameters for software see the [Parameters](#parameters) section
 
 **Note:**
 You must edit `config.yaml` **before** running the pipeline to ensure all paths are correctly set.
