@@ -529,6 +529,7 @@ The `config/config.yaml` file contains the editable pipeline parameters, thread 
 | *megahit_assembly: out_prefix*                                     | *--out-prefix is the prefix of the outfile in the scratch directory. When it is moved from the scratch to working directory it will be renamed to `sample__assembly.contigs.fa`. In the pipeline this is set to final.*                                                               |
 | *map_reads_to_assembly: max_mem_per_thread*                        | *Maximum memory per node that `Samtools` can use during sorting. In this pipeline it is set at 4G*                                                                                                                                                                                    |
 | *metabat2_binning: min_contig_length*                              | *The minimum length a contig must be to be considered for binning. Set to 2000 bp in this pipeline. Default is 2500 bp.*                                                                                                                                                              |
+| *checkm2: memory_usage*                              | *The lowmem flag reduces the RAM usage of the DIAMOND annotation step by half.*                                                                                                                                                              |
 
 ## Filters and exclusion lists
 
