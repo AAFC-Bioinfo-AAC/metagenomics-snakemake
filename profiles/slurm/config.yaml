@@ -156,8 +156,9 @@ set-resources:
 
   megahit_assembly:
     <<: *slurm_std
-    mem_mb: 64000
-    runtime: 1000
+    mem_mb: 400000
+    runtime: 3000
+    slurm_flags: "--exclusive"
 
   index_assembly:
     <<: *slurm_std
