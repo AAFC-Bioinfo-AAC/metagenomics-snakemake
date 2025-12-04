@@ -613,11 +613,11 @@ git clone <repository-url>
 
 ```bash
 metagenomics_pipeline/
-├── Workflow/
-|   └── Rules
+├── workflow/
+|   └── rules
 |          └──preprocessing.smk
 |          └── ...
-|   └── Snakefile
+|   └── snakefile
 │   └── env
 |        └── fastp.yaml
 |        └── bowtie2.yaml
