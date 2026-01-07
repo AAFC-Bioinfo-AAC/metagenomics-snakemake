@@ -449,7 +449,7 @@ The pipeline is modularized, with each module located in the `metagenomics-snake
 - **Outputs:**
   - Alignment map: `sample.bam`
 
-**Rule: `sample_depth_file` *Depth file for binning**
+**Rule: `sample_depth_file` *Depth file for binning***
 
 - **Purpose:** Generate a depth file that contains the contig depth and contig variance. This file is used by MetaBAT for binning.
 - **Inputs:**
@@ -457,7 +457,7 @@ The pipeline is modularized, with each module located in the `metagenomics-snake
 - **Outputs:**
   - Depth file: `sample_depth.txt`
 
-**Rule: `metabat2_binning` *Bin contigs**
+**Rule: `metabat2_binning` *Bin contigs***
 
 - **Purpose:** MetaBAT2 will bin contigs into potential MAGs.
 - **Inputs:**
@@ -473,7 +473,7 @@ The pipeline is modularized, with each module located in the `metagenomics-snake
   - The `bins` directory contains: `sample.bin.BinInfo.txt` and bins with the naming convention `sample.bin[1-9].fa` where [1-9] is a integer starting from 1 to the last bin number for that sample.
   - The `unbinned` directory contains: `sample.bin.unbinned.fa`, `sample.bin.tooShort.fa`, and `sample.binlowDepth.fa`
 
-**Rule: `checkm2_bins` *Completeness and contamination**
+**Rule: `checkm2_bins` *Completeness and contamination***
 
 - **Purpose:** Check the completeness and contamination of the bins/potential MAGs.
 - **Inputs:**
