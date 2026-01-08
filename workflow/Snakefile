@@ -131,12 +131,12 @@ def get_filtered_list_file(wildcards):
 # -------------------------------------------------------------------
 # Rules
 # -------------------------------------------------------------------
-#include: "rules/preprocessing.smk"
-#include: "rules/taxonomy.smk"
-#include: "rules/amr_short_reads.smk"
+include: "rules/preprocessing.smk"
+include: "rules/taxonomy.smk"
+include: "rules/amr_short_reads.smk"
 include: "rules/kegg.smk" 
-#include: "rules/mag.smk"
-#include: "rules/env_versions.smk"
+include: "rules/mag.smk"
+include: "rules/env_versions.smk"
 
 ## Rule outputs files ##
 rule all:
