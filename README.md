@@ -19,7 +19,7 @@
 
 ## About
 
-The **Metagenomics Snakemake pipeline** was designed for paired-end reads from high-biomass, host-associated metagenomic samples that were sequenced on an Illumina platform. The reproducible workflow is modular, allowing modules to be omitted provided cleaned are provided as input. Utilizing the **Snakemake** workflow, the pipeline automates read quality control, filtering, and host/Phix decontamination, as well as downstream modules that obtain biological information from the cleaned reads. The modules provide taxonomic abundance tables, antibiotic resistance profiles, higher order functional pathways, and metagenome-assembled genome (MAG)s assembled from individual samples.
+The **Metagenomics Snakemake pipeline** was designed for paired-end reads from high-biomass, host-associated metagenomic samples that were sequenced on an Illumina platform. The reproducible workflow is modular, allowing modules to be omitted provided cleaned reads are provided as input. Utilizing the **Snakemake** workflow, the pipeline automates read quality control, filtering, and host/Phix decontamination, as well as downstream modules that obtain biological information from the cleaned reads. The modules provide taxonomic abundance tables, antibiotic resistance profiles, higher order functional pathways, and metagenome-assembled genome (MAG)s assembled from individual samples.
 
 The pipeline consists of these modules:
 

@@ -184,7 +184,7 @@ set-resources:
     mem_mb: 128000
     runtime: 240
 
-  checkm2:
-    <<: *slurm_large
-    mem_mb: 840000
-    runtime: 30
+  checkm2_bins:
+    <<: *slurm_std
+    mem_mb: 120000
+    runtime: 240
