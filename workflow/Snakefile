@@ -1,4 +1,4 @@
-configfile: "config/config.yaml"
+configfile: "config/config_project_samples.yaml"
 
 from dotenv import load_dotenv
 import csv, os, sys
@@ -131,12 +131,12 @@ def get_filtered_list_file(wildcards):
 # -------------------------------------------------------------------
 # Rules
 # -------------------------------------------------------------------
-include: "rules/preprocessing.smk"
-include: "rules/taxonomy.smk"
-include: "rules/amr_short_reads.smk"
+#include: "rules/preprocessing.smk"
+#include: "rules/taxonomy.smk"
+#include: "rules/amr_short_reads.smk"
 include: "rules/kegg.smk" 
-include: "rules/mag.smk"
-include: "rules/env_versions.smk"
+#include: "rules/mag.smk"
+#include: "rules/env_versions.smk"
 
 ## Rule outputs files ##
 rule all:
@@ -195,8 +195,12 @@ rule all:
         expand(f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_ko_pathway_abundance_with_category.tsv", sample=SAMPLES),
         f"{KEGG_OUTPUT_DIR}/combined_ko_pathway_abundance_with_category.tsv",
         f"{KEGG_OUTPUT_DIR}/combined_ko_pathway_abundance_with_category_filtered.tsv",
+        f"{KEGG_OUTPUT_DIR}/pathways_categorized_cpm.tsv",
+        f"{KEGG_OUTPUT_DIR}/pathways_no_categorization_cpm.tsv",
+        f"{KEGG_OUTPUT_DIR}/kegg_gene_hits_raw.tsv",
+        f"{KEGG_OUTPUT_DIR}/ko_cpm.tsv",
+        f"{KEGG_OUTPUT_DIR}/read_counts_per_sample.tsv",
 
-        # Individual assemblies with MEGAHIT
         # Individual assemblies with MEGAHIT (only samples that produced contigs)
         lambda wc: expand(f"{SAMPLE_ASSEMBLY}/{{sample}}_assembly.contigs.fa",
                           sample=get_filtered_samples(wc)),

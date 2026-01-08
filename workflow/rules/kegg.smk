@@ -82,7 +82,6 @@ rule make_kegg_diamond_db:
         date +"%F %T" >> "$DONE"
         echo "[$(date)] Wrote done file to $DONE" >> "{log}"
         """
-
 rule kegg_diamond:
     input:
         merged = f"{MERGED_R1_R2}/{{sample}}_merged.fastq.gz",
@@ -251,5 +250,32 @@ rule filter_combined_kegg_table:
     conda:
         "../envs/python3.yaml"
     script:
-        "../scripts/filter_combined_kegg_table.py"  
-
+        "../scripts/filter_combined_kegg_table.py"
+rule merge_kegg_results:
+    input:
+        pathways_cat = expand(
+            f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_ko_pathway_abundance_with_category.tsv",
+            sample=SAMPLE_NAMES
+        ),
+        pathways_nocat = expand(
+            f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_aggregated_minpath.tsv",
+            sample=SAMPLE_NAMES
+        ),
+        gene_ko = expand(
+            f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_gene_ko_abundance.tsv",
+            sample=SAMPLE_NAMES
+        )
+    output:
+        pathways_categorized   = f"{KEGG_OUTPUT_DIR}/pathways_categorized_cpm.tsv",
+        pathways_nocat         = f"{KEGG_OUTPUT_DIR}/pathways_no_categorization_cpm.tsv",
+        gene_hits_raw          = f"{KEGG_OUTPUT_DIR}/kegg_gene_hits_raw.tsv",
+        ko_cpm                 = f"{KEGG_OUTPUT_DIR}/ko_cpm.tsv",
+        read_counts_per_sample = f"{KEGG_OUTPUT_DIR}/read_counts_per_sample.tsv"
+    params:
+        samples = SAMPLE_NAMES
+    log:
+        f"{LOG_DIR}/kegg/merge_kegg_results.log"
+    conda:
+        "../envs/python3.yaml"
+    script:
+        "../scripts/merge_kegg.py"
