@@ -303,7 +303,7 @@ The pipeline is modularized, with each module located in the `metagenomics-snake
 - **Outputs:**
   - Concatenated read pairs: `sample_merged.fastq.gz`
 
-**Rule: `make_kegg_diamond_db` * Format database for DIAMOND***
+**Rule: `make_kegg_diamond_db` *Format database for DIAMOND***
 
 - **Purpose:** Prepare the prokaryotic gene sequence file from the KEGG database for use with DIAMOND. If the DIAMOND-formatted database file (`prokaryotes.pep.dmnd`) already exists, the rule will skip database creation and only update or create the `prokaryotes_db_done.txt` marker file.
 - **Inputs:**
@@ -381,19 +381,17 @@ The pipeline is modularized, with each module located in the `metagenomics-snake
 
 - **Purpose:** To summarize the MinPath-confirmed pathways into higher-level categories
 - **Inputs:**
-
   - Table of abundances pathways confirmed by MinPath: `sample_aggregated_minpath.tsv`
   - BRITE hierarchy file from the KEGG database: `ko00001.keg`
 - **Outputs:**
-
   - Table of MinPath-confirmed pathways into higher-level categories: `sample_ko_pathway_abundance_with_category.tsv`
-    **Rule: `kegg_category_sampleID` *Add SampleID column***
+
+**Rule: `kegg_category_sampleID` *Add SampleID column***
+
 - **Purpose:** A sampleID column is added, so that tables can be combined.
 - **Inputs:**
-
   - Table of MinPath-confirmed pathways into higher-level categories: `sample_ko_pathway_abundance_with_category.tsv`
 - **Outputs:**
-
   - Table of MinPath-confirmed pathways into higher-level categories with SampleID: `sample_ko_pathway_abundance_with_category_sampleID.tsv"`
 
 **Rule: `combine_kegg_category_tables` *Combine tables***
@@ -408,7 +406,6 @@ The pipeline is modularized, with each module located in the `metagenomics-snake
 
 - **Purpose:** Remove higher level pathways from the table based an exclusion list.
 - **Inputs:**
-
   - Combined table of all samples for higher-level categories: `combined_ko_pathway_abundance_with_category.tsv`
   - List of pathways to remove: `KEGG_BRITE_pathway_exclusion_file.txt`
 - **Outputs:**
@@ -417,6 +414,20 @@ The pipeline is modularized, with each module located in the `metagenomics-snake
 - **Notes:**
 
   - Exclusion list can be edited and is located in `code/metagenomics-snakemake/resources`.
+
+**Rule: `merge_kegg_results` *combine KEGG Orthology (KO)***
+
+- **Purpose:** Combined tables that are ready for analysis.
+- **Inputs:**
+  - Table of MinPath-confirmed pathways into higher-level categories: `sample_ko_pathway_abundance_with_category.tsv`
+  - Table of abundances pathways confirmed by MinPath: `sample_aggregated_minpath.tsv`
+  - Abundance table: `sample_gene_ko_abundance.tsv`  
+- **Outputs:**
+  - `Pathways_categorized_CPM.tsv` is a table of combined KO abundance pathways where the column names are Pathway,Pathway_Name,Top_Category,Sub_Category,sample1,sample2,... and the rows are unique pathway.The abundance is in counts per million reads.
+  - `Pathways_no_categorization_CPM.tsv` is table of combined KO abundance pathway where the column names are Pathway, sample1, sample2 ... and the rows are unique pathways. The abundance is in counts per million reads.
+  - `KEGG_gene_hits_raw.tsv` is a table of combined gene hits where the column names are Gene,KO,sample1,sample2,... and the rows are copies per million reads values for each Gene-KO pair.
+  - `KO_CPM.tsv` is a table with the KO identifier abundance for each sample in counts per million reads.
+  - `Read_counts_per_sample.tsv` is a table with the read counts extracted from the gene_ko_abundance.tsv files.
 
 #### Module `mag.smk`
 
@@ -859,12 +870,12 @@ None.
 
 ### Preprocessing Module (`preprocessing.smk`)
 
-| **Output Type**      | **Filename**                                                                                 | **Description**                                                                                                                                                                                                                                                     |
-| ---------------------- | ---------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Trimmed paired reads | temp(`sample_r1.fastq.gz`), temp(`sample_r2.fastq.gz`)                                       | Adapter and quality trimmed paired-end reads from`fastp_pe` rule. These are marked temporary in the rule and will be removed once they are not needed by the pipeline. Can easily be changed by opening `workflow/rules/preprocessing.smk` and removing the temp(). |
-| Fastp Report         | temp(`sample.fastp.html`), temp(`sample.fastp.json`)                                         | Quality score statistics before and after processing.These are marked temporary in the rule and will be removed once they are not needed by the pipeline. Can easily be changed by opening`workflow/rules/preprocessing.smk` and removing the temp().               |
-| Sorted BAM file      | `sample.bam`                                                                                 | Aligned reads to Host/PhiX reference using Bowtie2 (`bowtie2_align` rule).                                                                                                                                                                                          |
-| Clean read pairs     | protected(`sample_trimmed_clean_R1.fastq.gz`), protected(`sample_trimmed_clean_R2.fastq.gz`) | Host- and PhiX-depleted reads from`extract_unmapped_fastq`. These file are marked protected.                                                                                                                                                                        |
+| **Output Type**         | **Filename**                                                                                          | **Description**                                                                                                                                                                                                                                                                                           |
+|------------------------ |-------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Trimmed paired reads    | temp(`sample_r1.fastq.gz`), temp(`sample_r2.fastq.gz`)                                                | Adapter and quality trimmed paired-end reads from `fastp_pe` rule. These are marked temporary in the rule and will be removed once they are not needed by the pipeline. Can easily be changed by opening `workflow/rules/preprocessing.smk` and removing the `temp()`.  |
+| Fastp Report            | temp(`sample.fastp.html`), temp(`sample.fastp.json`)                                                  | Quality score statistics before and after processing. These are marked temporary in the rule and will be removed once they are not needed by the pipeline. Can easily be changed by opening `workflow/rules/preprocessing.smk` and removing the `temp()`.              |
+| Sorted BAM file         | `sample.bam`                                                                                          | Aligned reads to Host/PhiX reference using Bowtie2 (`bowtie2_align` rule).                                                                                                                                                                                          |
+| Clean read pairs        | protected(`sample_trimmed_clean_R1.fastq.gz`), protected(`sample_trimmed_clean_R2.fastq.gz`)          | Host- and PhiX-depleted reads from `extract_unmapped_fastq`. These files are marked protected.                                                                                                                                                                       |                                                                                                                                                                       |
 
 ---
 
@@ -904,6 +915,7 @@ None.
 | MinPath output               | `sample_minpath_output.txt`                                                                                                                                                                                                  | Predicted minimal set of KEGG pathways (MinPath).                                                                                                                  |
 | MinPath pathway abundance    | `sample_aggregated_minpath.tsv`                                                                                                                                                                                              | Abundance table for MinPath-confirmed pathways.                                                                                                                    |
 | KEGG category table          | `sample_ko_pathway_abundance_with_category.tsv`,`sample_ko_pathway_abundance_with_category_sampleID.tsv`, `combined_ko_pathway_abundance_with_category.tsv`, and  `combined_ko_pathway_abundance_with_category_filtered.tsv` | Pathways summarized into higher-level KEGG BRITE categories for each sample and a combined table of all the pathways with and without an exclusion pathway filter. |
+| Long format KEGG tables | `Pathways_categorized_CPM.tsv`,`Pathways_no_categorization_CPM.tsv`, `KEGG_gene_hits_raw.tsv`, `KO_CPM.tsv`, and  `Read_counts_per_sample.tsv` | Final tables from the KEGG workflow that are ready for comparisions between samples. |
 
 ---
 
