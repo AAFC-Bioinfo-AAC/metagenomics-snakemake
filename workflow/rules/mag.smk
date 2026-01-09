@@ -69,9 +69,28 @@ rule megahit_assembly:
 
         echo "Placed contigs to: $dest" >> {log}
         """
+MAG_ENVS = ["bowtie2", "metabat2", "checkm2"]
+
+localrules: prewarm_mag_env, prewarm_mag_gate
+
+rule prewarm_mag_env:
+    output:
+        f"{LOG_DIR}/envs/mag/{{env}}.prewarmed"
+    conda:
+        "../envs/{env}.yaml"
+    shell:
+        "mkdir -p {LOG_DIR}/envs/mag && touch {output}"
+rule prewarm_mag_gate:
+    input:
+        expand(f"{LOG_DIR}/envs/mag/{{env}}.prewarmed", env=MAG_ENVS)
+    output:
+        touch(f"{LOG_DIR}/envs/conda_gate_mag.txt")
+    shell:
+        "mkdir -p {LOG_DIR}/envs && touch {output}"
 checkpoint filter_assemblies:
     input:
-        expand(f"{SAMPLE_ASSEMBLY}/{{sample}}_assembly.contigs.fa", sample=SAMPLES)
+        assemblies = expand(f"{SAMPLE_ASSEMBLY}/{{sample}}_assembly.contigs.fa", sample=SAMPLES),
+        gate = f"{LOG_DIR}/envs/conda_gate_mag.txt"
     output:
         f"{SAMPLE_ASSEMBLY}/passed_checkpoint_assemblies.txt"
     params:
@@ -130,7 +149,7 @@ checkpoint filter_assemblies:
             "filter_failure_reason"
         )]
 
-        for infile in input:
+        for infile in input.assemblies:
             sample = os.path.basename(infile).replace("_assembly.contigs.fa", "").replace(".gz","")
             fasta_bytes = os.path.getsize(infile) if os.path.exists(infile) else 0
             total_bp, num_contigs_passing_filter, num_contigs_total = fasta_stats_ge_len(infile, params.min_len_for_stats)
