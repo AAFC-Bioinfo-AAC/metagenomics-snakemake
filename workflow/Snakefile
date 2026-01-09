@@ -82,6 +82,7 @@ LOG_DIR           = relpath("log_files")
 SOFTWARE_VERSIONS = relpath("software_versions")
 KEGG_DIAMOND      = relpath("kegg_diamond_DB")
 KEGG_CUSTOM_LIST  = relpath("kegg_custom_list")
+SAMPLE_DBCAN      = relpath("dbcan_output_dir")
 
 BOWTIE_INDEX      = relpath("bowtie2_index")
 BOWTIE_INDEX_FILES= [f"{BOWTIE_INDEX}.{i}.bt2" for i in (1,2,3,4)] + \
@@ -93,6 +94,7 @@ KEGG_KO           = config["ko_lists"]
 KEGG_FASTA        = config["kegg_fasta"]
 KEGG_BRITE_HIERARCHY = config["kegg_brite_hierarchy"]
 CHECKM2_DB        = config["checkm2_DB"]
+DB_CAN_DB_PATH     = config["dbcan_DB_path"]
 
 # -------------------------------------------------------------------
 # Sample handling
@@ -121,12 +123,20 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "scripts"))
 
 from scripts.helpers import bowtie2_index_files, parse_filtered_samples
 
-def get_filtered_samples(wildcards):
-    ckpt_output = checkpoints.filter_assemblies.get().output[0]
+#def get_filtered_samples(wildcards):
+#    ckpt_output = checkpoints.filter_assemblies.get().output[0]
+#    return parse_filtered_samples(ckpt_output)
+
+#def get_filtered_list_file(wildcards):
+#    return checkpoints.filter_assemblies.get().output[0]
+
+#Checkpoint for CAZyme annotation in rules/db_can.smk
+def get_filtered_samples_dbcan(wildcards):
+    ckpt_output = checkpoints.nonempty_assemblies.get().output[0]
     return parse_filtered_samples(ckpt_output)
 
-def get_filtered_list_file(wildcards):
-    return checkpoints.filter_assemblies.get().output[0]
+def get_nonempty_list_file(wildcards):
+    return checkpoints.nonempty_assemblies.get().output[0]
 
 # -------------------------------------------------------------------
 # Rules
@@ -134,15 +144,17 @@ def get_filtered_list_file(wildcards):
 #include: "rules/preprocessing.smk"
 #include: "rules/taxonomy.smk"
 #include: "rules/amr_short_reads.smk"
-include: "rules/kegg.smk" 
+#include: "rules/kegg.smk" 
 #include: "rules/mag.smk"
 #include: "rules/env_versions.smk"
+include: "rules/db_can.smk"
 
 ## Rule outputs files ##
 rule all:
     input:
         # Ensure checkpoint runs first
-        get_filtered_list_file,
+        #get_filtered_list_file,
+        get_nonempty_list_file,
 
         # Reads depleted of host and PhiX
         expand(f"{HOST_DEP_DIR}/{{sample}}_trimmed_clean_R1.fastq.gz", sample=SAMPLES),
@@ -202,21 +214,32 @@ rule all:
         f"{KEGG_OUTPUT_DIR}/read_counts_per_sample.tsv",
 
         # Individual assemblies with MEGAHIT (only samples that produced contigs)
-        lambda wc: expand(f"{SAMPLE_ASSEMBLY}/{{sample}}_assembly.contigs.fa",
-                          sample=get_filtered_samples(wc)),
-        lambda wc: expand(f"{SAMPLE_ASSEMBLY}/{{sample}}.bam",
-                          sample=get_filtered_samples(wc)),
-        lambda wc: expand(f"{SAMPLE_ASSEMBLY}/metabat2/{{sample}}/{{sample}}_depth.txt",
-                          sample=get_filtered_samples(wc)),
-        lambda wc: expand(f"{SAMPLE_ASSEMBLY}/metabat2/{{sample}}/bins",
-                          sample=get_filtered_samples(wc)),
-        lambda wc: expand(f"{SAMPLE_ASSEMBLY}/metabat2/{{sample}}/unbinned",
-                          sample=get_filtered_samples(wc)),
-        lambda wc: expand(f"{SAMPLE_ASSEMBLY}/metabat2/{{sample}}/checkm2/",
-                          sample=get_filtered_samples(wc)),
-        lambda wc: expand(f"{SAMPLE_ASSEMBLY}/metabat2/{{sample}}/checkm2/quality_report.tsv",
-                          sample=get_filtered_samples(wc)),
+        #lambda wc: expand(f"{SAMPLE_ASSEMBLY}/{{sample}}_assembly.contigs.fa",
+                          #sample=get_filtered_samples(wc)),
+        #lambda wc: expand(f"{SAMPLE_ASSEMBLY}/{{sample}}.bam",
+                          #sample=get_filtered_samples(wc)),
+        #lambda wc: expand(f"{SAMPLE_ASSEMBLY}/metabat2/{{sample}}/{{sample}}_depth.txt",
+                          #sample=get_filtered_samples(wc)),
+        #lambda wc: expand(f"{SAMPLE_ASSEMBLY}/metabat2/{{sample}}/bins",
+                          #sample=get_filtered_samples(wc)),
+        #lambda wc: expand(f"{SAMPLE_ASSEMBLY}/metabat2/{{sample}}/unbinned",
+                          #sample=get_filtered_samples(wc)),
+        #lambda wc: expand(f"{SAMPLE_ASSEMBLY}/metabat2/{{sample}}/checkm2/",
+                          #sample=get_filtered_samples(wc)),
+        #lambda wc: expand(f"{SAMPLE_ASSEMBLY}/metabat2/{{sample}}/checkm2/quality_report.tsv",
+                          #sample=get_filtered_samples(wc)),
 
+        ## dbCAN cazyme analysis only on non-empty assemblies
+        lambda wc: expand(
+            f"{SAMPLE_DBCAN}/{{sample}}/{{sample}}_cazyme/overview.tsv",
+            sample=get_filtered_samples_dbcan(wc)),
+        lambda wc: expand(
+            f"{SAMPLE_DBCAN}/{{sample}}/{{sample}}_pul/cgc.gff",
+            sample=get_filtered_samples_dbcan(wc)),
+        lambda wc: expand(
+            f"{SAMPLE_DBCAN}/{{sample}}/{{sample}}_abund/fam_abund.out",
+            sample=get_filtered_samples_dbcan(wc)),
+        
         # Required logs or done markers
         f"{LOG_DIR}/rgi_reload_db.done",
         f"{LOG_DIR}/rgi_symlink.done",
@@ -225,5 +248,5 @@ rule all:
         # Software versions report
         f"{SOFTWARE_VERSIONS}/software_versions_summary.txt",
         f"{SOFTWARE_VERSIONS}/key_bioinformatics_software.txt",
-        f"{SOFTWARE_VERSIONS}/key_bioinformatics_software.html"
+        report(f"{SOFTWARE_VERSIONS}/key_bioinformatics_software.html")
         
