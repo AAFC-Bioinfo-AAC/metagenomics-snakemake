@@ -1,48 +1,52 @@
 <!-- omit in toc -->
+
 # METAGENOMICS SNAKEMAKE PIPELINE - USER GUIDE
 
 ---
 
 <!-- omit in toc -->
+
 ## Table of Contents
 
-- [Overview](#overview)
-  - [Workflow diagram](#workflow-diagram)
-  - [Snakemake rules](#snakemake-rules)
-    - [Module `preprocessing.smk`](#module-preprocessingsmk)
-    - [Module `taxonomy.smk`](#module-taxonomysmk)
-    - [Module `amr_short_reads.smk`](#module-amr_short_readssmk)
-    - [Module `kegg.smk`](#module-keggsmk)
-    - [Module `mag.smk`](#module-magsmk)
-- [Data](#data)
-- [Parameters](#parameters)
-- [Filters and exclusion lists](#filters-and-exclusion-lists)
-- [Usage](#usage)
-  - [Pre-requisites](#pre-requisites)
-    - [Software](#software)
-    - [Databases](#databases)
-  - [Setup Instructions](#setup-instructions)
-    - [1. Installation](#1-installation)
-    - [2. SLURM Profile](#2-slurm-profile)
-      - [2.1. SLURM Profile Directory Structure](#21-slurm-profile-directory-structure)
-      - [2.2. Profile Configuration](#22-profile-configuration)
-    - [3. Configuration](#3-configuration)
-      - [3.1. config/config.yaml](#31-configconfigyaml)
-      - [3.2. Environment file](#32-environment-file)
-      - [3.3. Sample list](#33-sample-list)
-    - [4. Running the pipeline](#4-running-the-pipeline)
-      - [4.1. Conda environments](#41-conda-environments)
-      - [4.2. SLURM launcher](#42-slurm-launcher)
-  - [Notes](#notes)
-    - [Warnings](#warnings)
-    - [Current issues](#current-issues)
-    - [Resource usage](#resource-usage)
-- [Output](#output)
-  - [Preprocessing Module (`preprocessing.smk`)](#preprocessing-module-preprocessingsmk)
-  - [Taxonomy Module (`taxonomy.smk`)](#taxonomy-module-taxonomysmk)
-  - [AMR Module (`amr_short_reads.smk`)](#amr-module-amr_short_readssmk)
-  - [KEGG Module (`kegg.smk`)](#kegg-module-keggsmk)
-  - [MAG Module (`mag.smk`)](#mag-module-magsmk)
+- [METAGENOMICS SNAKEMAKE PIPELINE - USER GUIDE](#metagenomics-snakemake-pipeline---user-guide)
+  - [Table of Contents](#table-of-contents)
+  - [Overview](#overview)
+    - [Workflow diagram](#workflow-diagram)
+    - [Snakemake rules](#snakemake-rules)
+      - [Module `preprocessing.smk`](#module-preprocessingsmk)
+      - [Module `taxonomy.smk`](#module-taxonomysmk)
+      - [Module `amr_short_reads.smk`](#module-amr_short_readssmk)
+      - [Module `kegg.smk`](#module-keggsmk)
+      - [Module `mag.smk`](#module-magsmk)
+  - [Data](#data)
+  - [Parameters](#parameters)
+  - [Filters and exclusion lists](#filters-and-exclusion-lists)
+  - [Usage](#usage)
+    - [Pre-requisites](#pre-requisites)
+      - [Software](#software)
+      - [Databases](#databases)
+    - [Setup Instructions](#setup-instructions)
+      - [1. Installation](#1-installation)
+      - [2. SLURM Profile](#2-slurm-profile)
+        - [2.1. SLURM Profile Directory Structure](#21-slurm-profile-directory-structure)
+        - [2.2. Profile Configuration](#22-profile-configuration)
+      - [3. Configuration](#3-configuration)
+        - [3.1. config/config.yaml](#31-configconfigyaml)
+        - [3.2. Environment file](#32-environment-file)
+        - [3.3. Sample list](#33-sample-list)
+      - [4. Running the pipeline](#4-running-the-pipeline)
+        - [4.1. Conda environments](#41-conda-environments)
+        - [4.2. SLURM launcher](#42-slurm-launcher)
+    - [Notes](#notes)
+      - [Warnings](#warnings)
+      - [Current issues](#current-issues)
+      - [Resource usage](#resource-usage)
+  - [Output](#output)
+    - [Preprocessing Module (`preprocessing.smk`)](#preprocessing-module-preprocessingsmk)
+    - [Taxonomy Module (`taxonomy.smk`)](#taxonomy-module-taxonomysmk)
+    - [AMR Module (`amr_short_reads.smk`)](#amr-module-amr_short_readssmk)
+    - [KEGG Module (`kegg.smk`)](#kegg-module-keggsmk)
+    - [MAG Module (`mag.smk`)](#mag-module-magsmk)
 
 ---
 
@@ -508,6 +512,7 @@ The raw input data must be in the form of paired-end FASTQ files generated from 
 
 The `config/config.yaml` file contains the editable pipeline parameters, thread allocation for rules with more than one core, and the relative file paths for input and output. The prefix of the absolute file path must go in `.env`. Most tools in the pipeline have default parameters. The tools with parameters different from default or that can be edited in the `config/config.yaml` file are listed below.
 
+
 | Parameter                                                          | Value                                                                                                                                                                                                                                                                                 |
 | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | *samplesheet.csv*                                                  | *The samplesheet is described here: [Sample list](#33-sample-list)*                                                                                                                                                                                                                   |
@@ -529,14 +534,15 @@ The `config/config.yaml` file contains the editable pipeline parameters, thread 
 | *megahit_assembly: out_prefix*                                     | *--out-prefix is the prefix of the outfile in the scratch directory. When it is moved from the scratch to working directory it will be renamed to `sample__assembly.contigs.fa`. In the pipeline this is set to final.*                                                               |
 | *map_reads_to_assembly: max_mem_per_thread*                        | *Maximum memory per node that `Samtools` can use during sorting. In this pipeline it is set at 4G*                                                                                                                                                                                    |
 | *metabat2_binning: min_contig_length*                              | *The minimum length a contig must be to be considered for binning. Set to 2000 bp in this pipeline. Default is 2500 bp.*                                                                                                                                                              |
-| *checkm2: memory_usage*                              | *The lowmem flag reduces the RAM usage of the DIAMOND annotation step by half.*                                                                                                                                                              |
+| *checkm2: memory_usage*                                            | *The lowmem flag reduces the RAM usage of the DIAMOND annotation step by half.*                                                                                                                                                                                                       |
 
 ## Filters and exclusion lists
 
-|Module | Rule | File | Description|
-|------|------|------|-------------|
-|taxonomy.smk| clean_host_bracken | workflow/scripts/clean_bracken_batch.py| This script removes the host taxa from Bracken output files. Taxonomy to be removed at each level is set in the `config/config.yaml`. Then the samples are re-normalized using the total remaining read counts. It is clearly indicated in the script where to edit the filter lists.|
-|kegg.smk| filter_combined_kegg_table | resources/KEGG_BRITE_pathway_exclusion_file.txt| The exclusion list removes non-prokaryotic pathways from the analysis. This tab-delimited file contains two columns: "Pathway_ID" and "Pathway_Name". The "Pathway_ID" is a four-digit string (e.g., 00073, 05418) that corresponds to the [KEGG Pathway Map](https://www.genome.jp/kegg-bin/get_htext?br08901.keg).|
+
+| Module       | Rule                       | File                                            | Description                                                                                                                                                                                                                                                                                                         |
+| -------------- | ---------------------------- | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| taxonomy.smk | clean_host_bracken         | workflow/scripts/clean_bracken_batch.py         | This script removes the host taxa from Bracken output files. Taxonomy to be removed at each level is set in the`config/config.yaml`. Then the samples are re-normalized using the total remaining read counts. It is clearly indicated in the script where to edit the filter lists.                                |
+| kegg.smk     | filter_combined_kegg_table | resources/KEGG_BRITE_pathway_exclusion_file.txt | The exclusion list removes non-prokaryotic pathways from the analysis. This tab-delimited file contains two columns: "Pathway_ID" and "Pathway_Name". The "Pathway_ID" is a four-digit string (e.g., 00073, 05418) that corresponds to the[KEGG Pathway Map](https://www.genome.jp/kegg-bin/get_htext?br08901.keg). |
 
 ---
 
@@ -630,7 +636,7 @@ metagenomics_pipeline/
 │       └── config.yaml         ← profile config
 ├── run_snakemake.sh            ← your SLURM launcher
 ├── .env
-└── ...                 
+└── ...               
 ```
 
 ##### 2.2. Profile Configuration
@@ -649,7 +655,7 @@ cores: 60
 jobs: 10 
 latency-wait: 60 
 rerun-incomplete: true
-retries: 2            
+retries: 2          
 max-jobs-per-second: 2 
 executor: slurm
 
@@ -762,22 +768,36 @@ Snakemake can automatically create and load Conda environments for each rule in 
 
 - `bedtools.yaml`
 - `bowtie2.yaml`
+- `bwa.yaml`
 - `checkm2.yaml`
+- `dbcan.yaml`
 - `diamond.yaml`
 - `fastp.yaml`
 - `kraken2.yaml`
 - `megahit.yaml`
 - `metabat2.yaml`
 - `minpath.yaml`
+- `pyrodigal.yaml`
 - `python3.yaml`
 - `rgi.yaml`
 
-Load the required conda environments for the pipeline from the main snakemake directory.
+If the compute cluster on the HPC you are using does not have internet acess then you must create the conda envrioments on the head node.
+
+Create conda envriments before any checkpoints:
 
 ```bash
 snakemake --use-conda \
   --conda-create-envs-only \
   --conda-prefix path/to/common/lab/folder/conda/metag-snakemake-conda
+```
+
+Create envriments after checkpoints:
+
+```bash
+#MAG pathway
+snakemake  --use-conda prewarm_mag_gate -j 1 --conda-prefix path/to/common/lab/folder/conda/metag-snakemake-conda
+#dbCAN pathway
+snakemake  --use-conda prewarm_dbcan_gate -j 1 --conda-prefix path/to/common/lab/folder/conda/metag-snakemake-conda
 ```
 
 ##### 4.2. SLURM launcher
@@ -872,18 +892,18 @@ None.
 
 ### KEGG Module (`kegg.smk`)
 
-| **Output Type**              | **Filename**                                         | **Description**                                                                                                                          |
-| ------------------------------ | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| Concatenated read pairs      | `sample_merged.fastq.gz`                             | Merged clean reads for KEGG processing.                                                                                                  |
-| DIAMOND formatted database   | `prokaryotes.pep.dmnd`                               | The KEGG database file`prokaryotes.pep.gz` is used to create the DIAMOND formatted database only if the database does not already exists |
-| DIAMOND database done marker | `prokaryotes_db_done.txt`                            | Confirms that`prokaryotes.pep.dmnd` exists                                                                                               |
-| DIAMOND alignment output     | `sample_diamond_output.m8`                           | Alignment summary of reads vs KEGG protein database.                                                                                     |
-| Read count                   | `sample_read_count.txt`                              | Total read count for concatenated read pairs.                                                                                            |
-| KEGG gene abundance table    | `sample_gene_ko_abundance.tsv`                       | KEGG orthology gene abundance normalized by RPKM and CPM.                                                                                |
-| KEGG KO lists                | `sample_ko_list_raw.txt`, `sample_ko_list_fixed.txt` | KEGG orthology ID lists for MinPath input.                                                                                               |
-| MinPath output               | `sample_minpath_output.txt`                          | Predicted minimal set of KEGG pathways (MinPath).                                                                                        |
-| MinPath pathway abundance    | `sample_aggregated_minpath.tsv`                      | Abundance table for MinPath-confirmed pathways.                                                                                          |
-| KEGG category table          | `sample_ko_pathway_abundance_with_category.tsv`,`sample_ko_pathway_abundance_with_category_sampleID.tsv`, `combined_ko_pathway_abundance_with_category.tsv`, and  `combined_ko_pathway_abundance_with_category_filtered.tsv`     | Pathways summarized into higher-level KEGG BRITE categories for each sample and a combined table of all the pathways with and without an exclusion pathway filter.                                                                             |
+| **Output Type**              | **Filename**                                                                                                                                                                                                                 | **Description**                                                                                                                                                    |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Concatenated read pairs      | `sample_merged.fastq.gz`                                                                                                                                                                                                     | Merged clean reads for KEGG processing.                                                                                                                            |
+| DIAMOND formatted database   | `prokaryotes.pep.dmnd`                                                                                                                                                                                                       | The KEGG database file`prokaryotes.pep.gz` is used to create the DIAMOND formatted database only if the database does not already exists                           |
+| DIAMOND database done marker | `prokaryotes_db_done.txt`                                                                                                                                                                                                    | Confirms that`prokaryotes.pep.dmnd` exists                                                                                                                         |
+| DIAMOND alignment output     | `sample_diamond_output.m8`                                                                                                                                                                                                   | Alignment summary of reads vs KEGG protein database.                                                                                                               |
+| Read count                   | `sample_read_count.txt`                                                                                                                                                                                                      | Total read count for concatenated read pairs.                                                                                                                      |
+| KEGG gene abundance table    | `sample_gene_ko_abundance.tsv`                                                                                                                                                                                               | KEGG orthology gene abundance normalized by RPKM and CPM.                                                                                                          |
+| KEGG KO lists                | `sample_ko_list_raw.txt`, `sample_ko_list_fixed.txt`                                                                                                                                                                         | KEGG orthology ID lists for MinPath input.                                                                                                                         |
+| MinPath output               | `sample_minpath_output.txt`                                                                                                                                                                                                  | Predicted minimal set of KEGG pathways (MinPath).                                                                                                                  |
+| MinPath pathway abundance    | `sample_aggregated_minpath.tsv`                                                                                                                                                                                              | Abundance table for MinPath-confirmed pathways.                                                                                                                    |
+| KEGG category table          | `sample_ko_pathway_abundance_with_category.tsv`,`sample_ko_pathway_abundance_with_category_sampleID.tsv`, `combined_ko_pathway_abundance_with_category.tsv`, and  `combined_ko_pathway_abundance_with_category_filtered.tsv` | Pathways summarized into higher-level KEGG BRITE categories for each sample and a combined table of all the pathways with and without an exclusion pathway filter. |
 
 ---
 
