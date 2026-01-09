@@ -39,3 +39,5 @@ profile/slurm/config.yaml
 snakemake_slurm_launcher.sh
 snakemake_slurm_launcher.sh
 workflow/rules/kegg-full.smk
+profiles/slurm/config.yaml
+.env
