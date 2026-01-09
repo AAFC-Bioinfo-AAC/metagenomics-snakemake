@@ -158,6 +158,11 @@ set-resources:
     mem_mb: 4000
     runtime: 30
 
+  merge_kegg_results:
+    <<: *slurm_std
+    mem_mb: 240000
+    runtime: 60
+
   megahit_assembly:
     <<: *slurm_std
     mem_mb: 400000
@@ -188,3 +193,38 @@ set-resources:
     <<: *slurm_std
     mem_mb: 120000
     runtime: 240
+
+  pyrodigal:
+    <<: *slurm_std
+    mem_mb: 32000
+    runtime: 240
+  
+  cazyme_annotation:
+    <<: *slurm_std
+    mem_mb: 42000
+    runtime: 480
+  
+  cgc_calling:
+    <<: *slurm_std
+    mem_mb: 42000
+    runtime: 480
+
+  substrate_prediction:
+    <<: *slurm_std
+    mem_mb: 42000
+    runtime: 480
+  
+  bwa_mem_mapping:
+    <<: *slurm_std
+    mem_mb: 48000
+    runtime: 600
+
+  dbcan_depth:
+    <<: *slurm_std
+    mem_mb: 24000
+    runtime: 360
+
+  get_abundances_rpm:
+    <<: *slurm_std
+    mem_mb: 8000
+    runtime: 120
