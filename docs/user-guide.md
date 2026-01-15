@@ -59,7 +59,6 @@
 
 ```mermaid
 ---
----
 config:
   theme: base
   themeVariables:
