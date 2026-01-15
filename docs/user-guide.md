@@ -96,8 +96,8 @@ flowchart TD
         E --> F[MEGAHIT]
         F --> G((Assembled contigs))
         G --> I{Checkpoint}
-        I --> |Index assembly and map reads to assembly| J[Bowtie2]
-        J --> |Depth file and binning| K[MetaBAT2]
+        I -->|Index assembly and map reads to assembly| J[Bowtie2]
+        J -->|Depth file and binning| K[MetaBAT2]
         K --> L2((MAGs))
         L2 --> M[CheckM2]
         M --> N((Quality Report))
@@ -105,13 +105,15 @@ flowchart TD
 
     subgraph DBCAN ["<b>dbCAN (CAZyme / CGC / Substrate)</b>"]
         direction TB
-        I --> |Predict genes & proteins| D1[Pyrodigal]
+        I -->|Predict genes & proteins| D1[Pyrodigal]
         D1 --> D2((Genes GFF + Proteins FASTA))
-        D2 --> |CAZyme annotation + CGC calling + substrate prediction| D3["run_dbCAN"]
+
+        D2 -->|CAZyme annotation + CGC calling + substrate prediction| D3["run_dbCAN"]
         D3 --> D4((CAZyme / CGC / Substrate Outputs))
-        D2 --> |Map reads to assembly| D5["BWA-MEM"]
-        D5 --> |Gene depth| D6["dbcan_utils"]
-        D6 --> |Normalize abundances (RPM)| D7["dbcan_utils"]
+
+        D2 -->|Map reads to assembly| D5["BWA-MEM"]
+        D5 -->|Gene depth| D6["dbcan_depth"]
+        D6 -->|Normalize abundances (RPM)| D7["get_abundances_rpm"]
         D7 --> D8((Abundance Outputs))
     end
 
@@ -134,6 +136,7 @@ flowchart TD
     %% TEMP FILE STYLING
     style C fill:#1f2937,stroke:#22d3ee,stroke-dasharray: 5 5,color:#e5e7eb
     style L1 fill:#1f2937,stroke:#22d3ee,stroke-dasharray: 5 5,color:#e5e7eb
+
 ```
 
 ### Snakemake rules
