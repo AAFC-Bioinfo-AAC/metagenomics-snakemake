@@ -49,7 +49,6 @@
     - [KEGG Module (`kegg.smk`)](#kegg-module-keggsmk)
     - [MAG Module (`mag.smk`)](#mag-module-magsmk)
     - [dbCAN Module (`db_can.smk`)](#dbcan-module-db_cansmk)
-    - [Notes](#notes-1)
 
 ---
 
@@ -1071,7 +1070,8 @@ None.
 | CGC substrate abundance (majority voting) | `CGC_substrate_majority_voting.out` | Predicted CGC substrate abundances inferred using a majority-voting approach based on CAZyme composition. |
 | Synteny plots | `synteny_pdf/` | Synteny plots comparing predicted CGCs to known Polysaccharide Utilization Loci (PULs). |
 
-### Notes
+Notes:
+
 - Users may enable or disable individual steps by editing `workflow/rules/db_can.smk` and the `rule all` section in `workflow/Snakefile`.
 - CAZyme Gene Clusters (CGCs) are identified prior to substrate prediction.
 - Polysaccharide Utilization Loci (PULs) are not explicitly called; predicted CGCs are compared to experimentally characterized PULs to infer likely substrates.
