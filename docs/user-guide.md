@@ -82,16 +82,16 @@ config:
 ---
 flowchart TD
 
-    subgraph PREPROC ["<b>Pre-processing</b>"]
+    subgraph PREPROC ["Pre-processing"]
         direction TB
-        A[Paired Reads] -->|QC & Trim| B[fastp]
+        A[Paired Reads] -->|QC and Trim| B[fastp]
         B --> C[Trimmed Reads - temp]
         B --> L1((Fastp QC Report))
-        C -->|Host/PhiX Removal| D[Bowtie2]
+        C -->|Host or PhiX Removal| D[Bowtie2]
         D --> E((Filtered Reads))
     end
 
-    subgraph MAGS ["<b>Individual assemblies</b>"]
+    subgraph MAGS ["Individual assemblies"]
         direction TB
         E --> F[MEGAHIT]
         F --> G((Assembled contigs))
@@ -103,21 +103,21 @@ flowchart TD
         M --> N((Quality Report))
     end
 
-    subgraph DBCAN ["<b>dbCAN (CAZyme / CGC / Substrate)</b>"]
+    subgraph DBCAN ["dbCAN - CAZyme, CGC, Substrate"]
         direction TB
-        I -->|Predict genes & proteins| D1[Pyrodigal]
-        D1 --> D2((Genes GFF + Proteins FASTA))
+        I -->|Predict genes and proteins| D1[Pyrodigal]
+        D1 --> D2((Genes GFF and Proteins FASTA))
 
-        D2 -->|CAZyme annotation + CGC calling + substrate prediction| D3["run_dbCAN"]
-        D3 --> D4((CAZyme / CGC / Substrate Outputs))
+        D2 -->|CAZyme annotation, CGC calling, substrate prediction| D3[run_dbCAN]
+        D3 --> D4((CAZyme, CGC, Substrate Outputs))
 
-        D2 -->|Map reads to assembly| D5["BWA-MEM"]
-        D5 -->|Gene depth| D6["dbcan_depth"]
-        D6 -->|Normalize abundances (RPM)| D7["get_abundances_rpm"]
+        D2 -->|Map reads to assembly| D5[BWA-MEM]
+        D5 -->|Gene depth| D6[dbcan_depth]
+        D6 -->|Normalize abundances RPM| D7[get_abundances_rpm]
         D7 --> D8((Abundance Outputs))
     end
 
-    subgraph QC_REPORTS ["<b>Short Read Reports</b>"]
+    subgraph QC_REPORTS ["Short Read Reports"]
         direction TB
         E --> P[Kraken2]
         P --> Q[Bracken]
