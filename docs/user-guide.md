@@ -103,18 +103,20 @@ flowchart TD
     end
 
     subgraph DBCAN ["dbCAN - CAZyme, CGC, Substrate"]
-        direction TB
-        I -->|Predict genes and proteins| D1[Pyrodigal]
-        D1 --> D2((Genes GFF and Proteins FASTA))
+      direction TB
+      I -->|Predict genes and proteins| D1[Pyrodigal]
+      D1 --> D2((Genes GFF and Proteins FASTA))
 
-        D2 -->|CAZyme annotation, CGC calling, substrate prediction| D3[run_dbCAN]
-        D3 --> D4((CAZyme, CGC, Substrate Outputs))
+      D2 -->|CAZyme annotation, CGC calling, substrate prediction| D3[run_dbCAN]
+      D3 --> D4((CAZyme, CGC, Substrate Outputs))
 
-        D2 -->|Map reads to assembly| D5[BWA-MEM]
-        D5 -->|Gene depth| D6[dbcan_depth]
-        D6 -->|Normalize abundances RPM| D7[get_abundances_rpm]
-        D7 --> D8((Abundance Outputs))
-    end
+      D2 -->|Map reads to assembly| D5[BWA-MEM]
+      D5 -->|Gene depth| D6[dbcan_utils]
+      D4 -->|overview.tsv| D7[dbcan_utils]
+      D6 -->|Normalize abundances RPM| D7
+      D7 --> D8((Abundance Outputs))
+  end
+
 
     subgraph QC_REPORTS ["Short Read Reports"]
         direction TB
