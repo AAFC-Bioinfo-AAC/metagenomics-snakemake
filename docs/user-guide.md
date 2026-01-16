@@ -117,7 +117,6 @@ flowchart TD
       D7 --> D8((Abundance Outputs in RPM))
   end
 
-
     subgraph QC_REPORTS ["Short Read Reports"]
         direction TB
         E --> P[Kraken2]
