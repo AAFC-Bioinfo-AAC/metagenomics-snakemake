@@ -113,8 +113,8 @@ flowchart TD
       D2 -->|Map reads to assembly| D5[BWA-MEM]
       D5 -->|Gene depth| D6[dbcan_utils]
       D4 -->|overview.tsv| D7[dbcan_utils]
-      D6 -->|Normalize abundances RPM| D7
-      D7 --> D8((Abundance Outputs))
+      D6 -->|depth.txt| D7
+      D7 --> D8((Abundance Outputs in RPM))
   end
 
 
