@@ -229,7 +229,8 @@ rule get_abundances_rpm:
         cgc_substrate_voting = f"{SAMPLE_DBCAN}/{{sample}}/{{sample}}_abund/CGC_substrate_majority_voting.out"
     params:
         dbcan_dir = f"{SAMPLE_DBCAN}/{{sample}}/{{sample}}_dbcan",
-        ab_dir = f"{SAMPLE_DBCAN}/{{sample}}/{{sample}}_abund"
+        ab_dir = f"{SAMPLE_DBCAN}/{{sample}}/{{sample}}_abund",
+        marker_file = f"{SAMPLE_DBCAN}/{{sample}}/{{sample}}_abund/did_not_run_get_abundances_rpm.txt"
     log:
         f"{LOG_DIR}/dbcan/get_abundances_rpm/{{sample}}.log"
     conda:
@@ -238,14 +239,20 @@ rule get_abundances_rpm:
         r"""
         set -euo pipefail
         mkdir -p "$(dirname "{log}")"
-
         (
           cd "{params.ab_dir}"
 
-          # run tools (no stdout redirects)
-        dbcan_utils fam_abund -bt "{input.depth_file}" -i "{params.dbcan_dir}" -a RPM >> "{log}" 2>&1
-        dbcan_utils fam_substrate_abund -bt "{input.depth_file}" -i "{params.dbcan_dir}" -a RPM >> "{log}" 2>&1
-        dbcan_utils CGC_abund -bt "{input.depth_file}" -i "{params.dbcan_dir}" -a RPM >> "{log}" 2>&1
-        dbcan_utils CGC_substrate_abund -bt "{input.depth_file}" -i "{params.dbcan_dir}" -a RPM >> "{log}" 2>&1
+          # check if overview file has only header (1 or 0 lines)
+          if [ $(wc -l < "{input.overview}") -le 1 ]; then
+              touch {output.cazy_fam_ab} {output.cazy_subfam_ab} {output.EC_number} {output.substrate_ab} {output.cgc_ab} {output.substrate_ho} {output.cgc_substrate_voting}
+              echo "overview.tsv file has only header (1 or 0 lines), therefor to prevent an error in the Snakemake pipeline empty fam_abund.out, subfam_abund.out, EC_abund.out, fam_substrate_abund.out, CGC_abund.out, CGC_substrate_PUL_homology.out, and CGC_substrate_majority_voting.out files were generated." > "{params.marker_file}"
+          else
+              dbcan_utils fam_abund -bt "{input.depth_file}" -i "{params.dbcan_dir}" -a RPM >> "{log}" 2>&1
+              dbcan_utils fam_substrate_abund -bt "{input.depth_file}" -i "{params.dbcan_dir}" -a RPM >> "{log}" 2>&1
+              dbcan_utils CGC_abund -bt "{input.depth_file}" -i "{params.dbcan_dir}" -a RPM >> "{log}" 2>&1
+              dbcan_utils CGC_substrate_abund -bt "{input.depth_file}" -i "{params.dbcan_dir}" -a RPM >> "{log}" 2>&1
+              # Optionally, clean up marker if it exists
+              [ -f "{params.marker_file}" ] && rm -f "{params.marker_file}" || true
+          fi
         )
         """
