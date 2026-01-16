@@ -29,37 +29,6 @@ if not TMPDIR:
 os.makedirs(TMPDIR, exist_ok=True)
 
 # -------------------------------------------------------------------
-# CARD DB setup
-# -------------------------------------------------------------------
-
-def validate_card_db(path):
-    """Ensure CARD DB has required files."""
-    def has_fasta(p):
-        return (
-            os.path.exists(os.path.join(p, "card_reference.fasta")) or
-            any(name.endswith(".fasta") for name in os.listdir(p))
-        )
-    if not (os.path.exists(os.path.join(path, "card.json")) and has_fasta(path)):
-        sys.exit(
-            f"\nERROR: CARD DB not properly prepared at {path} "
-            "(missing card.json or .fasta). See pipeline README.\n"
-        )
-
-env_rgi_card = os.getenv("RGI_CARD", "").strip()
-if env_rgi_card:
-    RGI_CARD = env_rgi_card
-elif "card_latest" in config:
-    cfg_card = config["card_latest"]
-    RGI_CARD = os.path.join(PROJECT_ROOT, cfg_card) if not os.path.isabs(cfg_card) else cfg_card
-else:
-    raise ValueError("You must set RGI_CARD in .env or card_latest in config.yaml!")
-
-if not os.path.exists(RGI_CARD):
-    sys.exit(f"\nERROR: RGI_CARD path not found: {RGI_CARD}\n")
-
-validate_card_db(RGI_CARD)
-
-# -------------------------------------------------------------------
 # Config-derived paths
 # -------------------------------------------------------------------
 
