@@ -95,7 +95,7 @@ flowchart TD
         E --> F[MEGAHIT]
         F --> G((Assembled contigs))
         G --> I{Checkpoint}
-        I -->|Index assembly and map reads to assembly| J[Bowtie2]
+        I -->|Index assembly and map reads to assembly - temp| J[Bowtie2]
         J -->|Depth file and binning| K[MetaBAT2]
         K --> L2((MAGs))
         L2 --> M[CheckM2]
@@ -473,7 +473,7 @@ The pipeline is modularized, with each module located in the `metagenomics-snake
 - **Inputs:**
   - Assembly for each sample: `sample_assembly.contigs.fa`
 - **Outputs:**
-  - Bowtie2 index: `sample_assembly.1.bt2`, `sample_assembly.2.bt2`, `sample_assembly.3.bt2`, `sample_assembly.4.bt2`, `sample_assembly.rev.1.bt2`, and `sample_assembly.rev.2.bt2`
+  - These index files are marked as temporary in the rule: `sample_assembly.1.bt2`, `sample_assembly.2.bt2`, `sample_assembly.3.bt2`, `sample_assembly.4.bt2`, `sample_assembly.rev.1.bt2`, and `sample_assembly.rev.2.bt2` If these are required the temporary() flag on the output files in the rule can be removed.
 
 **Rule: `map_reads_to_assembly` *Map paired reads back to assembly***
 
@@ -1043,7 +1043,7 @@ None.
 | ------------------------ | -------------------------------------------------------------- | --------------------------------------------------------- |
 | Assembly               | `sample_assembly.contigs.fa`                                 | Assembled contigs for each sample (`megahit_assembly`). |
 | Filtered sample list   | `samples_with_contigs.txt`                                   | List of samples with successful assemblies.             |
-| Bowtie2 index          | `sample_assembly.[1-4].bt2`, `sample_assembly.rev.[1-2].bt2` | Bowtie2 index files for each assembly.                  |
+| Bowtie2 index          | temp(`sample_assembly.[1-4].bt2`, `sample_assembly.rev.[1-2].bt2`) These are marked temporary in the rule and will be removed once they are not needed by the pipeline. Can easily be changed by opening `workflow/rules/mag.smk` and removing the `temp()`. | Bowtie2 index files for each assembly.                  |
 | Assembly alignment map | `sample.bam`                                                 | Reads mapped back to assembly.                          |
 | Depth file             | `sample_depth.txt`                                           | Contig depth and variance for binning with MetaBAT2.    |
 | Binning outputs        | `SAMPLE_ASSEMBLY/metabat2/sample/bins`, `.../unbinned`       | Binned and unbinned contigs from MetaBAT2.              |
