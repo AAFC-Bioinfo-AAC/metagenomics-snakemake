@@ -104,9 +104,9 @@ set-resources:
     runtime: 30
 
   rgi_bwt:
-    <<: *slurm_large
-    mem_mb: 120000
-    runtime: 90
+    <<: *slurm_std
+    mem_mb: 380000
+    runtime: 300
 
   merge_read_pairs:
     <<: *slurm_std
