@@ -4,89 +4,20 @@
     Date created: 2025/09/23
     Snakemake version: 9.9.0
 '''
-rule megahit_assembly:
-    input: 
-        R1 = f"{HOST_DEP_DIR}/{{sample}}_trimmed_clean_R1.fastq.gz",
-        R2 = f"{HOST_DEP_DIR}/{{sample}}_trimmed_clean_R2.fastq.gz"
-    output:
-        assembly = f"{SAMPLE_ASSEMBLY}/{{sample}}_assembly.contigs.fa"
-    log:
-        f"{LOG_DIR}/individual_assemblies/{{sample}}_megahit.log"
-    conda:
-        "../envs/megahit.yaml"
-    params:
-        min_contig_length = config.get("megahit", {}).get("min_contig_length", 1000), 
-        out_prefix = config.get("megahit", {}).get("out_prefix", "final")
-    threads: config.get("megahit", {}).get("threads", 16)
-    shell:
-        r"""
-        set -euo pipefail
-        mkdir -p "$(dirname {log})"
-        mkdir -p "$(dirname {output.assembly})"
+# -------------------------------------------------------------------
+# Function for checkpoint
+# -------------------------------------------------------------------
+def get_filtered_samples(wildcards):
+    ckpt_output = checkpoints.filter_assemblies.get().output[0]
+    return parse_filtered_samples(ckpt_output)
 
-        tmpbase="${{TMPDIR:-/tmp}}"
-        run_dir="$(mktemp -d "$tmpbase/magahit_run_{wildcards.sample}_XXXXXX")" || {{ echo "Failed to create MEGAHIT run dir" >> {log}; exit 1; }}
-        tmp_dir="$(mktemp -d "$tmpbase/magahit_tmp_{wildcards.sample}_XXXXXX")" || {{ echo "Failed to create MEGAHIT temp dir" >> {log}; exit 1; }}
-        echo "Using MEGAHIT run dir: ${{run_dir}}" >> {log}
-        echo "Using MEGAHIT tmp dir: ${{tmp_dir}}" >> {log}
+def get_filtered_list_file(wildcards):
+    return checkpoints.filter_assemblies.get().output[0]
 
-        cleanup() {{
-            if [[ -n "${{tmp_dir:-}}" && -d "${{tmp_dir}}" ]]; then
-                echo "Cleaning up MEGAHIT tmp dir: ${{tmp_dir}}" >> {log}
-                rm -rf -- "${{tmp_dir}}"
-            fi
-            if [[ -n "${{run_dir:-}}" && -d "${{run_dir}}" ]]; then
-                echo "Cleaning up MEGAHIT run dir: ${{run_dir}}" >> {log}
-                rm -rf -- "${{run_dir}}"
-            fi
-        }}
-        trap cleanup EXIT
-
-        megahit \
-          -1 {input.R1} \
-          -2 {input.R2} \
-          -t {threads} \
-          --min-contig-len {params.min_contig_length} \
-          --out-dir "$run_dir" --force \
-          --out-prefix {params.out_prefix} \
-          --tmp-dir "$tmp_dir" \
-          >> {log} 2>&1
-
-        src_contigs="$run_dir/{params.out_prefix}.contigs.fa"
-        dest="{output.assembly}"
-
-        if [[ ! -s "$src_contigs" ]]; then
-            echo "No contigs produced; creating empty placeholder: $dest" >> {log}
-            : > "$dest"
-            touch "${{dest}}.EMPTY"
-            echo "Marker file created: ${{dest}}.EMPTY" >> {log}
-            exit 0
-        fi
-
-        tmp_dest="${{dest}}.tmp.$$"
-        cp --preserve=mode,timestamps "$src_contigs" "$tmp_dest"
-        mv -f "$tmp_dest" "$dest"
-
-        echo "Placed contigs to: $dest" >> {log}
-        """
-MAG_ENVS = ["bowtie2", "metabat2", "checkm2"]
-
-localrules: prewarm_mag_env, prewarm_mag_gate
-
-rule prewarm_mag_env:
-    output:
-        f"{LOG_DIR}/envs/mag/{{env}}.prewarmed"
-    conda:
-        "../envs/{env}.yaml"
-    shell:
-        "mkdir -p {LOG_DIR}/envs/mag && touch {output}"
-rule prewarm_mag_gate:
-    input:
-        expand(f"{LOG_DIR}/envs/mag/{{env}}.prewarmed", env=MAG_ENVS)
-    output:
-        touch(f"{LOG_DIR}/envs/conda_gate_mag.txt")
-    shell:
-        "mkdir -p {LOG_DIR}/envs && touch {output}"
+# -------------------------------------------------------------------
+# Checkpoint to filter assemblies based on quality metrics
+# Occurs after assembly but before binning
+# -------------------------------------------------------------------
 checkpoint filter_assemblies:
     input:
         assemblies = expand(f"{SAMPLE_ASSEMBLY}/{{sample}}_assembly.contigs.fa", sample=SAMPLES),
@@ -192,14 +123,105 @@ checkpoint filter_assemblies:
         except Exception:
             pass
 
+# -------------------------------------------------------------------
+# Pre-warm conda envs for MAG workflow that occur after checkpoint
+# -------------------------------------------------------------------
+MAG_ENVS = ["bowtie2", "metabat2", "checkm2"]
+
+localrules: prewarm_mag_env, prewarm_mag_gate
+
+rule prewarm_mag_env:
+    output:
+        f"{LOG_DIR}/envs/mag/{{env}}.prewarmed"
+    conda:
+        "../envs/{env}.yaml"
+    shell:
+        "mkdir -p {LOG_DIR}/envs/mag && touch {output}"
+rule prewarm_mag_gate:
+    input:
+        expand(f"{LOG_DIR}/envs/mag/{{env}}.prewarmed", env=MAG_ENVS)
+    output:
+        touch(f"{LOG_DIR}/envs/conda_gate_mag.txt")
+    shell:
+        "mkdir -p {LOG_DIR}/envs && touch {output}"
+# -------------------------------------------------------------------
+# Rules
+# -------------------------------------------------------------------
+rule megahit_assembly:
+    input: 
+        R1 = f"{HOST_DEP_DIR}/{{sample}}_trimmed_clean_R1.fastq.gz",
+        R2 = f"{HOST_DEP_DIR}/{{sample}}_trimmed_clean_R2.fastq.gz"
+    output:
+        assembly = f"{SAMPLE_ASSEMBLY}/{{sample}}_assembly.contigs.fa"
+    log:
+        f"{LOG_DIR}/individual_assemblies/{{sample}}_megahit.log"
+    conda:
+        "../envs/megahit.yaml"
+    params:
+        min_contig_length = config.get("megahit", {}).get("min_contig_length", 1000), 
+        out_prefix = config.get("megahit", {}).get("out_prefix", "final")
+    threads: config.get("megahit", {}).get("threads", 16)
+    shell:
+        r"""
+        set -euo pipefail
+        mkdir -p "$(dirname {log})"
+        mkdir -p "$(dirname {output.assembly})"
+
+        tmpbase="${{TMPDIR:-/tmp}}"
+        run_dir="$(mktemp -d "$tmpbase/magahit_run_{wildcards.sample}_XXXXXX")" || {{ echo "Failed to create MEGAHIT run dir" >> {log}; exit 1; }}
+        tmp_dir="$(mktemp -d "$tmpbase/magahit_tmp_{wildcards.sample}_XXXXXX")" || {{ echo "Failed to create MEGAHIT temp dir" >> {log}; exit 1; }}
+        echo "Using MEGAHIT run dir: ${{run_dir}}" >> {log}
+        echo "Using MEGAHIT tmp dir: ${{tmp_dir}}" >> {log}
+
+        cleanup() {{
+            if [[ -n "${{tmp_dir:-}}" && -d "${{tmp_dir}}" ]]; then
+                echo "Cleaning up MEGAHIT tmp dir: ${{tmp_dir}}" >> {log}
+                rm -rf -- "${{tmp_dir}}"
+            fi
+            if [[ -n "${{run_dir:-}}" && -d "${{run_dir}}" ]]; then
+                echo "Cleaning up MEGAHIT run dir: ${{run_dir}}" >> {log}
+                rm -rf -- "${{run_dir}}"
+            fi
+        }}
+        trap cleanup EXIT
+
+        megahit \
+          -1 {input.R1} \
+          -2 {input.R2} \
+          -t {threads} \
+          --min-contig-len {params.min_contig_length} \
+          --out-dir "$run_dir" --force \
+          --out-prefix {params.out_prefix} \
+          --tmp-dir "$tmp_dir" \
+          >> {log} 2>&1
+
+        src_contigs="$run_dir/{params.out_prefix}.contigs.fa"
+        dest="{output.assembly}"
+
+        if [[ ! -s "$src_contigs" ]]; then
+            echo "No contigs produced; creating empty placeholder: $dest" >> {log}
+            : > "$dest"
+            touch "${{dest}}.EMPTY"
+            echo "Marker file created: ${{dest}}.EMPTY" >> {log}
+            exit 0
+        fi
+
+        tmp_dest="${{dest}}.tmp.$$"
+        cp --preserve=mode,timestamps "$src_contigs" "$tmp_dest"
+        mv -f "$tmp_dest" "$dest"
+
+        echo "Placed contigs to: $dest" >> {log}
+        """
 rule index_assembly:
     input:
         assembly = f"{SAMPLE_ASSEMBLY}/{{sample}}_assembly.contigs.fa"
     output:
-        expand(
-            f"{SAMPLE_ASSEMBLY}/{{sample}}_assembly.{{suffix}}",
-            sample=["{sample}"],
-            suffix=["1.bt2", "2.bt2", "3.bt2", "4.bt2", "rev.1.bt2", "rev.2.bt2"]
+        temp(
+            expand(
+                f"{SAMPLE_ASSEMBLY}/{{sample}}_assembly.{{suffix}}",
+                sample=["{sample}"],
+                suffix=["1.bt2", "2.bt2", "3.bt2", "4.bt2", "rev.1.bt2", "rev.2.bt2"]
+            )
         )
     log:
         f"{LOG_DIR}/individual_assemblies/{{sample}}_bowtie2_index.log"

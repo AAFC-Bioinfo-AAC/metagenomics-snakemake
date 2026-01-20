@@ -92,13 +92,6 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "scripts"))
 
 from scripts.helpers import bowtie2_index_files, parse_filtered_samples
 
-def get_filtered_samples(wildcards):
-    ckpt_output = checkpoints.filter_assemblies.get().output[0]
-    return parse_filtered_samples(ckpt_output)
-
-def get_filtered_list_file(wildcards):
-    return checkpoints.filter_assemblies.get().output[0]
-
 #Checkpoint for CAZyme annotation in rules/db_can.smk
 def get_filtered_samples_dbcan(wildcards):
     ckpt_output = checkpoints.nonempty_assemblies.get().output[0]
