@@ -95,7 +95,7 @@ flowchart TD
         E --> F[MEGAHIT]
         F --> G((Assembled contigs))
         G --> I{Checkpoint}
-        I -->|Index assembly and map reads to assembly - temp| J[Bowtie2]
+        I -->|Index assembly and map reads to assembly | J[Bowtie2]
         J -->|Depth file and binning| K[MetaBAT2]
         K --> L2((MAGs))
         L2 --> M[CheckM2]
