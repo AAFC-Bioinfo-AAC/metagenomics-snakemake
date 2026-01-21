@@ -543,7 +543,7 @@ The pipeline is modularized, with each module located in the `metagenomics-snake
   - Clean read pairs: `sample_trimmed_clean_R1.fastq.gz`/`sample_trimmed_clean_R2.fastq.gz`
 - **Outputs:**
   - Binary alignment map: `sample.bam`
-  - Index map: `sample.bam.bi`
+  - Temporary marked index map: temp(`sample.bam.bi`)
 
 **Rule: `dbcan_depth` *Sequnce depth***
 
@@ -551,6 +551,7 @@ The pipeline is modularized, with each module located in the `metagenomics-snake
 - **Inputs:**
   - Genes written to GFF format: `sample_genes.gff`
   - Binary alignment map: `sample.bam`
+  - Index map: temp(`sample.bam.bi`)
 - **Outputs:**
   - Depth file: `sample.depth.txt`
 
@@ -791,71 +792,6 @@ The SLURM execution settings must be configured in `profiles/slurm/config.yaml.`
 - Remember to update the rerun-triggers: [input, params, software-env] setting whenever the pipeline is modified.
 - Pre-rule resource allocations should also be adjusted according to the size and number of input samples for each rule.
 
-**Example for profiles/slurm/config.yaml:**
-
-```bash
-### How Snakemake assigns resources to rules
-cores: 60
-jobs: 10 
-latency-wait: 60 
-rerun-incomplete: true
-retries: 2          
-max-jobs-per-second: 2 
-executor: slurm
-
-# Prevent rerunning jobs just for Snakefile edits
-## flags available [input, mtime, params, software-env, code, resources, none]
-rerun-triggers: [input, params, software-env]
-
-### Env Vars ###
-envvars:
-  TMPDIR: "/path/to/scratch/${USER}/tmpdir"
-
-default-resources:
-  - slurm_account=<ACCOUNT_NAME>
-  - slurm_partition=<PARTITION_NAME>
-  - slurm_cluster=<CLUSTER_NAME>
-  - slurm_qos=<QOS_LEVEL>      # e.g., 'low' if jobs are held in queue for long
-  - runtime=<RUNTIME_MINUTES>  # e.g., 60
-  - mem_mb=<MEMORY_MB>         # e.g., 4000
-
-### Env modules ###
-# use-envmodules: false 
-
-### Conda ###
-use-conda: true
-conda-frontend: mamba   
-
-### Resource scopes ###
-set-resource-scopes:
-  cores: local 
-
-# Reusable Slurm Blocks (anchors)
-# Standard partition/account/cluster used by most rules
-_slurm_std: &slurm_std
-  slurm_partition: <PARTITION_NAME>
-  slurm_account: <ACCOUNT_NAME_standard> # e.g., standard, large memory 
-  slurm_cluster: <CLUSTER_NAME>
-
-# Large memory partition/account/cluster used by some rules
-_slurm_large: &slurm_large
-  slurm_partition: <PARTITION_NAME>
-  slurm_account: <ACCOUNT_NAME_large> # e.g., standard, large memory 
-  slurm_cluster: <CLUSTER_NAME>
-
-## Per rule resources
-set-resources:
-  fastp_pe:
-    <<: *slurm_std
-    mem_mb: 4000
-    runtime: 40
-
-  kraken2:
-    <<: *slurm_large
-    mem_mb: 600000
-    runtime: 30
-```
-
 #### 3. Configuration
 
 The pipeline requires the following configuration files: `config.yaml`, `.env`, and `samplesheet.csv`.
@@ -1057,7 +993,7 @@ None.
 | Protein sequences | `sample_proteins.faa` | Predicted protein sequences used as input for all dbCAN analyses. |
 | Coding sequences | `sample.cds` | Nucleotide coding sequences for predicted genes. |
 | Read alignment map | `sample.bam` | Reads mapped to the sample assembly (from `bwa_mem_mapping`). |
-| Alignment index | `sample.bam.bai` | Index file for the BAM alignment. |
+| Alignment index | temp(`sample.bam.bai`) | Index file for the BAM alignment. Marked temporary in the rule and will be removed once not needed by the pipeline. |
 | Gene depth file | `sample.depth.txt` | Sequencing depth of predicted genes, used for abundance normalization. |
 | CAZyme annotation results | `sample/sample_cazyme/` | Directory containing CAZyme family and subfamily annotations, including HMMER, DIAMOND, and integrated summary outputs. |
 | CGC prediction results | `sample/sample_cgc/` | Directory containing CAZyme Gene Cluster (CGC) predictions, functional gene annotations, and cluster summary tables. |
