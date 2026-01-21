@@ -19,6 +19,9 @@ rerun-triggers: [input, params, software-env]
 envvars:
   TMPDIR: "/<PATH>/<TO>/<SCRATCH>/${USER}/tmpdir"
 
+### Set shadow directory to scratch ###
+shadow-prefix: "/<PATH>/<TO>/<SCRATCH>/${USER}/tmpdir"
+
 default-resources:
   - slurm_account=<ACCOUNT_NAME>
   - slurm_partition=<PARTITION_NAME>
