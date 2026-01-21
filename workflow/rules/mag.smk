@@ -230,6 +230,7 @@ rule index_assembly:
     threads: config.get("index_assembly", {}).get("threads", 8)
     params:
         index_base = lambda wildcards: f"{SAMPLE_ASSEMBLY}/{wildcards.sample}_assembly"
+    shadow: "shallow"
     shell:
         r"""
         set -euo pipefail

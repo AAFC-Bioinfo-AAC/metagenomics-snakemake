@@ -1,3 +1,43 @@
+'''
+    Filename: mag.smk
+    Author: Katherine James-Gzyl
+    Date created: 2025/12/18
+    Snakemake version: 9.9.0
+'''
+# -------------------------------------------------------------------
+# Function for checkpoint
+# -------------------------------------------------------------------
+
+#Checkpoint for CAZyme annotation in rules/db_can.smk
+def get_filtered_samples_dbcan(wildcards):
+    ckpt_output = checkpoints.nonempty_assemblies.get().output[0]
+    return parse_filtered_samples(ckpt_output)
+
+def get_nonempty_list_file(wildcards):
+    return checkpoints.nonempty_assemblies.get().output[0]
+# -------------------------------------------------------------------
+# Checkpoint to only include samples that have an assembly
+# Occurs after assembly in module mag.smk
+# -------------------------------------------------------------------
+checkpoint nonempty_assemblies:
+    input:
+        assemblies = expand(f"{SAMPLE_ASSEMBLY}/{{sample}}_assembly.contigs.fa", sample=SAMPLE_NAMES),
+        gate = f"{LOG_DIR}/envs/conda_gate_dbcan.txt"
+    output:
+        f"{SAMPLE_ASSEMBLY}/nonempty_assemblies.txt"
+    run:
+        import os
+        valid_samples = []
+        for infile in input.assemblies:
+            if os.path.isfile(infile) and os.path.getsize(infile) > 0:
+                sample = os.path.basename(infile).replace("_assembly.contigs.fa", "")
+                valid_samples.append(sample)
+        with open(output[0], "w") as out:
+            out.write("\n".join(valid_samples) + ("\n" if valid_samples else ""))
+
+# -------------------------------------------------------------------
+# Pre-warm conda envs for MAG workflow that occur after checkpoint
+# -------------------------------------------------------------------            
 DBCAN_ENVS = ["pyrodigal", "dbcan", "bwa"]
 
 localrules: prewarm_dbcan_env, prewarm_dbcan_gate
@@ -16,21 +56,9 @@ rule prewarm_dbcan_gate:
         touch(f"{LOG_DIR}/envs/conda_gate_dbcan.txt")
     shell:
         "mkdir -p {LOG_DIR}/envs && touch {output}"
-checkpoint nonempty_assemblies:
-    input:
-        assemblies = expand(f"{SAMPLE_ASSEMBLY}/{{sample}}_assembly.contigs.fa", sample=SAMPLE_NAMES),
-        gate = f"{LOG_DIR}/envs/conda_gate_dbcan.txt"
-    output:
-        f"{SAMPLE_ASSEMBLY}/nonempty_assemblies.txt"
-    run:
-        import os
-        valid_samples = []
-        for infile in input.assemblies:
-            if os.path.isfile(infile) and os.path.getsize(infile) > 0:
-                sample = os.path.basename(infile).replace("_assembly.contigs.fa", "")
-                valid_samples.append(sample)
-        with open(output[0], "w") as out:
-            out.write("\n".join(valid_samples) + ("\n" if valid_samples else ""))
+# -------------------------------------------------------------------
+# Rules
+# -------------------------------------------------------------------
 rule pyrodigal:
     input:
         assembly = f"{SAMPLE_ASSEMBLY}/{{sample}}_assembly.contigs.fa"
@@ -155,7 +183,9 @@ rule bwa_mem_mapping:
         R2 = f"{HOST_DEP_DIR}/{{sample}}_trimmed_clean_R2.fastq.gz"
     output:
         bam = f"{SAMPLE_DBCAN}/{{sample}}/mapping/{{sample}}.bam",
-        bai = f"{SAMPLE_DBCAN}/{{sample}}/mapping/{{sample}}.bam.bai"
+        bai =  temp(f"{SAMPLE_DBCAN}/{{sample}}/mapping/{{sample}}.bam.bai"),
+        bwa_idx = temp(multiext(f"{SAMPLE_ASSEMBLY}/{{sample}}_assembly.contigs.fa",".amb", ".ann", ".bwt", ".pac", ".sa"))
+
     log:
         f"{LOG_DIR}/dbcan/bwa_mem_mapping/{{sample}}.log"
     threads: config.get("bwa_mem_mapping", {}).get("threads", 12) #thread splitting
@@ -188,7 +218,8 @@ rule bwa_mem_mapping:
 rule dbcan_depth:
     input:
         gff = f"{SAMPLE_DBCAN}/{{sample}}/{{sample}}_genes.gff",
-        bam = f"{SAMPLE_DBCAN}/{{sample}}/mapping/{{sample}}.bam"
+        bam = f"{SAMPLE_DBCAN}/{{sample}}/mapping/{{sample}}.bam", 
+        bai = f"{SAMPLE_DBCAN}/{{sample}}/mapping/{{sample}}.bam.bai"
     output:
         depth_file = f"{SAMPLE_DBCAN}/{{sample}}/{{sample}}_abund/{{sample}}.depth.txt"
     log:

@@ -92,14 +92,6 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "scripts"))
 
 from scripts.helpers import bowtie2_index_files, parse_filtered_samples
 
-#Checkpoint for CAZyme annotation in rules/db_can.smk
-def get_filtered_samples_dbcan(wildcards):
-    ckpt_output = checkpoints.nonempty_assemblies.get().output[0]
-    return parse_filtered_samples(ckpt_output)
-
-def get_nonempty_list_file(wildcards):
-    return checkpoints.nonempty_assemblies.get().output[0]
-
 # -------------------------------------------------------------------
 # Rules
 # -------------------------------------------------------------------
@@ -114,11 +106,7 @@ include: "rules/db_can.smk"
 ## Rule outputs files ##
 rule all:
     input:
-        # Ensure checkpoint runs first
-        get_filtered_list_file,
-        get_nonempty_list_file,
-
-        # Reads depleted of host and PhiX
+       # Reads depleted of host and PhiX
         expand(f"{HOST_DEP_DIR}/{{sample}}_trimmed_clean_R1.fastq.gz", sample=SAMPLES),
         expand(f"{HOST_DEP_DIR}/{{sample}}_trimmed_clean_R2.fastq.gz", sample=SAMPLES),
 
