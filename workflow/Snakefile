@@ -29,37 +29,6 @@ if not TMPDIR:
 os.makedirs(TMPDIR, exist_ok=True)
 
 # -------------------------------------------------------------------
-# CARD DB setup
-# -------------------------------------------------------------------
-
-def validate_card_db(path):
-    """Ensure CARD DB has required files."""
-    def has_fasta(p):
-        return (
-            os.path.exists(os.path.join(p, "card_reference.fasta")) or
-            any(name.endswith(".fasta") for name in os.listdir(p))
-        )
-    if not (os.path.exists(os.path.join(path, "card.json")) and has_fasta(path)):
-        sys.exit(
-            f"\nERROR: CARD DB not properly prepared at {path} "
-            "(missing card.json or .fasta). See pipeline README.\n"
-        )
-
-env_rgi_card = os.getenv("RGI_CARD", "").strip()
-if env_rgi_card:
-    RGI_CARD = env_rgi_card
-elif "card_latest" in config:
-    cfg_card = config["card_latest"]
-    RGI_CARD = os.path.join(PROJECT_ROOT, cfg_card) if not os.path.isabs(cfg_card) else cfg_card
-else:
-    raise ValueError("You must set RGI_CARD in .env or card_latest in config.yaml!")
-
-if not os.path.exists(RGI_CARD):
-    sys.exit(f"\nERROR: RGI_CARD path not found: {RGI_CARD}\n")
-
-validate_card_db(RGI_CARD)
-
-# -------------------------------------------------------------------
 # Config-derived paths
 # -------------------------------------------------------------------
 
@@ -82,6 +51,7 @@ LOG_DIR           = relpath("log_files")
 SOFTWARE_VERSIONS = relpath("software_versions")
 KEGG_DIAMOND      = relpath("kegg_diamond_DB")
 KEGG_CUSTOM_LIST  = relpath("kegg_custom_list")
+SAMPLE_DBCAN      = relpath("dbcan_output_dir")
 
 BOWTIE_INDEX      = relpath("bowtie2_index")
 BOWTIE_INDEX_FILES= [f"{BOWTIE_INDEX}.{i}.bt2" for i in (1,2,3,4)] + \
@@ -93,6 +63,7 @@ KEGG_KO           = config["ko_lists"]
 KEGG_FASTA        = config["kegg_fasta"]
 KEGG_BRITE_HIERARCHY = config["kegg_brite_hierarchy"]
 CHECKM2_DB        = config["checkm2_DB"]
+DB_CAN_DB_PATH     = config["dbcan_DB_path"]
 
 # -------------------------------------------------------------------
 # Sample handling
@@ -121,13 +92,6 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "scripts"))
 
 from scripts.helpers import bowtie2_index_files, parse_filtered_samples
 
-def get_filtered_samples(wildcards):
-    ckpt_output = checkpoints.filter_assemblies.get().output[0]
-    return parse_filtered_samples(ckpt_output)
-
-def get_filtered_list_file(wildcards):
-    return checkpoints.filter_assemblies.get().output[0]
-
 # -------------------------------------------------------------------
 # Rules
 # -------------------------------------------------------------------
@@ -137,14 +101,12 @@ include: "rules/amr_short_reads.smk"
 include: "rules/kegg.smk" 
 include: "rules/mag.smk"
 include: "rules/env_versions.smk"
+include: "rules/db_can.smk"
 
 ## Rule outputs files ##
 rule all:
     input:
-        # Ensure checkpoint runs first
-        get_filtered_list_file,
-
-        # Reads depleted of host and PhiX
+       # Reads depleted of host and PhiX
         expand(f"{HOST_DEP_DIR}/{{sample}}_trimmed_clean_R1.fastq.gz", sample=SAMPLES),
         expand(f"{HOST_DEP_DIR}/{{sample}}_trimmed_clean_R2.fastq.gz", sample=SAMPLES),
 
@@ -217,6 +179,17 @@ rule all:
         lambda wc: expand(f"{SAMPLE_ASSEMBLY}/metabat2/{{sample}}/checkm2/quality_report.tsv",
                           sample=get_filtered_samples(wc)),
 
+        ## dbCAN cazyme analysis only on non-empty assemblies
+        lambda wc: expand(
+            f"{SAMPLE_DBCAN}/{{sample}}/{{sample}}_cazyme/overview.tsv",
+            sample=get_filtered_samples_dbcan(wc)),
+        lambda wc: expand(
+            f"{SAMPLE_DBCAN}/{{sample}}/{{sample}}_pul/cgc.gff",
+            sample=get_filtered_samples_dbcan(wc)),
+        lambda wc: expand(
+            f"{SAMPLE_DBCAN}/{{sample}}/{{sample}}_abund/fam_abund.out",
+            sample=get_filtered_samples_dbcan(wc)),
+        
         # Required logs or done markers
         f"{LOG_DIR}/rgi_reload_db.done",
         f"{LOG_DIR}/rgi_symlink.done",
@@ -225,5 +198,5 @@ rule all:
         # Software versions report
         f"{SOFTWARE_VERSIONS}/software_versions_summary.txt",
         f"{SOFTWARE_VERSIONS}/key_bioinformatics_software.txt",
-        f"{SOFTWARE_VERSIONS}/key_bioinformatics_software.html"
+        report(f"{SOFTWARE_VERSIONS}/key_bioinformatics_software.html")
         

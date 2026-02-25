@@ -1,48 +1,54 @@
 <!-- omit in toc -->
+
 # METAGENOMICS SNAKEMAKE PIPELINE - USER GUIDE
 
 ---
 
 <!-- omit in toc -->
+
 ## Table of Contents
 
-- [Overview](#overview)
-  - [Workflow diagram](#workflow-diagram)
-  - [Snakemake rules](#snakemake-rules)
-    - [Module `preprocessing.smk`](#module-preprocessingsmk)
-    - [Module `taxonomy.smk`](#module-taxonomysmk)
-    - [Module `amr_short_reads.smk`](#module-amr_short_readssmk)
-    - [Module `kegg.smk`](#module-keggsmk)
-    - [Module `mag.smk`](#module-magsmk)
-- [Data](#data)
-- [Parameters](#parameters)
-- [Filters and exclusion lists](#filters-and-exclusion-lists)
-- [Usage](#usage)
-  - [Pre-requisites](#pre-requisites)
-    - [Software](#software)
-    - [Databases](#databases)
-  - [Setup Instructions](#setup-instructions)
-    - [1. Installation](#1-installation)
-    - [2. SLURM Profile](#2-slurm-profile)
-      - [2.1. SLURM Profile Directory Structure](#21-slurm-profile-directory-structure)
-      - [2.2. Profile Configuration](#22-profile-configuration)
-    - [3. Configuration](#3-configuration)
-      - [3.1. config/config.yaml](#31-configconfigyaml)
-      - [3.2. Environment file](#32-environment-file)
-      - [3.3. Sample list](#33-sample-list)
-    - [4. Running the pipeline](#4-running-the-pipeline)
-      - [4.1. Conda environments](#41-conda-environments)
-      - [4.2. SLURM launcher](#42-slurm-launcher)
-  - [Notes](#notes)
-    - [Warnings](#warnings)
-    - [Current issues](#current-issues)
-    - [Resource usage](#resource-usage)
-- [Output](#output)
-  - [Preprocessing Module (`preprocessing.smk`)](#preprocessing-module-preprocessingsmk)
-  - [Taxonomy Module (`taxonomy.smk`)](#taxonomy-module-taxonomysmk)
-  - [AMR Module (`amr_short_reads.smk`)](#amr-module-amr_short_readssmk)
-  - [KEGG Module (`kegg.smk`)](#kegg-module-keggsmk)
-  - [MAG Module (`mag.smk`)](#mag-module-magsmk)
+- [METAGENOMICS SNAKEMAKE PIPELINE - USER GUIDE](#metagenomics-snakemake-pipeline---user-guide)
+  - [Table of Contents](#table-of-contents)
+  - [Overview](#overview)
+    - [Workflow diagram](#workflow-diagram)
+    - [Snakemake rules](#snakemake-rules)
+      - [Module `preprocessing.smk`](#module-preprocessingsmk)
+      - [Module `taxonomy.smk`](#module-taxonomysmk)
+      - [Module `amr_short_reads.smk`](#module-amr_short_readssmk)
+      - [Module `kegg.smk`](#module-keggsmk)
+      - [Module `mag.smk`](#module-magsmk)
+      - [Module `db_can.smk`](#module-db_cansmk)
+  - [Data](#data)
+  - [Parameters](#parameters)
+  - [Filters and exclusion lists](#filters-and-exclusion-lists)
+  - [Usage](#usage)
+    - [Pre-requisites](#pre-requisites)
+      - [Software](#software)
+      - [Databases](#databases)
+    - [Setup Instructions](#setup-instructions)
+      - [1. Installation](#1-installation)
+      - [2. SLURM Profile](#2-slurm-profile)
+        - [2.1. SLURM Profile Directory Structure](#21-slurm-profile-directory-structure)
+        - [2.2. Profile Configuration](#22-profile-configuration)
+      - [3. Configuration](#3-configuration)
+        - [3.1. config/config.yaml](#31-configconfigyaml)
+        - [3.2. Environment file](#32-environment-file)
+        - [3.3. Sample list](#33-sample-list)
+      - [4. Running the pipeline](#4-running-the-pipeline)
+        - [4.1. Conda environments](#41-conda-environments)
+        - [4.2. SLURM launcher](#42-slurm-launcher)
+    - [Notes](#notes)
+      - [Warnings](#warnings)
+      - [Current issues](#current-issues)
+      - [Resource usage](#resource-usage)
+  - [Output](#output)
+    - [Preprocessing Module (`preprocessing.smk`)](#preprocessing-module-preprocessingsmk)
+    - [Taxonomy Module (`taxonomy.smk`)](#taxonomy-module-taxonomysmk)
+    - [AMR Module (`amr_short_reads.smk`)](#amr-module-amr_short_readssmk)
+    - [KEGG Module (`kegg.smk`)](#kegg-module-keggsmk)
+    - [MAG Module (`mag.smk`)](#mag-module-magsmk)
+    - [dbCAN Module (`db_can.smk`)](#dbcan-module-db_cansmk)
 
 ---
 
@@ -75,28 +81,43 @@ config:
 ---
 flowchart TD
 
-    subgraph PREPROC ["<b>Pre-processing</b>"]
+    subgraph PREPROC ["Pre-processing"]
         direction TB
-        A[Paired Reads] -->|QC & Trim| B[fastp]
+        A[Paired Reads] -->|QC and Trim| B[fastp]
         B --> C[Trimmed Reads - temp]
         B --> L1((Fastp QC Report))
-        C -->|Host/PhiX Removal| D[Bowtie2]
+        C -->|Host or PhiX Removal| D[Bowtie2]
         D --> E((Filtered Reads))
     end
 
-    subgraph MAGS ["<b>Individual assemblies</b>"]
+    subgraph MAGS ["Individual assemblies"]
         direction TB
         E --> F[MEGAHIT]
         F --> G((Assembled contigs))
         G --> I{Checkpoint}
-        I --> |Index assembly and map reads to assembly| J[Bowtie2]
-        J --> |Depth file and binning| K[MetaBAT2]
+        I -->|Index assembly and map reads to assembly | J[Bowtie2]
+        J -->|Depth file and binning| K[MetaBAT2]
         K --> L2((MAGs))
         L2 --> M[CheckM2]
         M --> N((Quality Report))
     end
 
-    subgraph QC_REPORTS ["<b>Short Read Reports</b>"]
+    subgraph DBCAN ["dbCAN - CAZyme, CGC, Substrate"]
+      direction TB
+      I -->|Predict genes and proteins| D1[Pyrodigal]
+      D1 --> D2((Genes GFF and Proteins FASTA))
+
+      D2 -->|CAZyme annotation, CGC calling, substrate prediction| D3[run_dbCAN]
+      D3 --> D4((CAZyme, CGC, Substrate Outputs))
+
+      D2 -->|Map reads to assembly| D5[BWA-MEM]
+      D5 -->|Gene depth| D6[dbcan_utils]
+      D4 -->|overview.tsv| D7[dbcan_utils]
+      D6 -->|depth.txt| D7
+      D7 --> D8((Abundance Outputs in RPM))
+  end
+
+    subgraph QC_REPORTS ["Short Read Reports"]
         direction TB
         E --> P[Kraken2]
         P --> Q[Bracken]
@@ -115,6 +136,7 @@ flowchart TD
     %% TEMP FILE STYLING
     style C fill:#1f2937,stroke:#22d3ee,stroke-dasharray: 5 5,color:#e5e7eb
     style L1 fill:#1f2937,stroke:#22d3ee,stroke-dasharray: 5 5,color:#e5e7eb
+
 ```
 
 ### Snakemake rules
@@ -299,7 +321,7 @@ The pipeline is modularized, with each module located in the `metagenomics-snake
 - **Outputs:**
   - Concatenated read pairs: `sample_merged.fastq.gz`
 
-**Rule: `make_kegg_diamond_db` * Format database for DIAMOND***
+**Rule: `make_kegg_diamond_db` *Format database for DIAMOND***
 
 - **Purpose:** Prepare the prokaryotic gene sequence file from the KEGG database for use with DIAMOND. If the DIAMOND-formatted database file (`prokaryotes.pep.dmnd`) already exists, the rule will skip database creation and only update or create the `prokaryotes_db_done.txt` marker file.
 - **Inputs:**
@@ -377,19 +399,17 @@ The pipeline is modularized, with each module located in the `metagenomics-snake
 
 - **Purpose:** To summarize the MinPath-confirmed pathways into higher-level categories
 - **Inputs:**
-
   - Table of abundances pathways confirmed by MinPath: `sample_aggregated_minpath.tsv`
   - BRITE hierarchy file from the KEGG database: `ko00001.keg`
 - **Outputs:**
-
   - Table of MinPath-confirmed pathways into higher-level categories: `sample_ko_pathway_abundance_with_category.tsv`
-    **Rule: `kegg_category_sampleID` *Add SampleID column***
+
+**Rule: `kegg_category_sampleID` *Add SampleID column***
+
 - **Purpose:** A sampleID column is added, so that tables can be combined.
 - **Inputs:**
-
   - Table of MinPath-confirmed pathways into higher-level categories: `sample_ko_pathway_abundance_with_category.tsv`
 - **Outputs:**
-
   - Table of MinPath-confirmed pathways into higher-level categories with SampleID: `sample_ko_pathway_abundance_with_category_sampleID.tsv"`
 
 **Rule: `combine_kegg_category_tables` *Combine tables***
@@ -404,7 +424,6 @@ The pipeline is modularized, with each module located in the `metagenomics-snake
 
 - **Purpose:** Remove higher level pathways from the table based an exclusion list.
 - **Inputs:**
-
   - Combined table of all samples for higher-level categories: `combined_ko_pathway_abundance_with_category.tsv`
   - List of pathways to remove: `KEGG_BRITE_pathway_exclusion_file.txt`
 - **Outputs:**
@@ -413,6 +432,22 @@ The pipeline is modularized, with each module located in the `metagenomics-snake
 - **Notes:**
 
   - Exclusion list can be edited and is located in `code/metagenomics-snakemake/resources`.
+
+**Rule: `merge_kegg_results` *combine KEGG Orthology (KO)***
+
+- **Purpose:** Combined tables that are ready for analysis.
+- **Inputs:**
+  - Table of MinPath-confirmed pathways into higher-level categories: `sample_ko_pathway_abundance_with_category.tsv`
+  - Table of abundances pathways confirmed by MinPath: `sample_aggregated_minpath.tsv`
+  - Abundance table: `sample_gene_ko_abundance.tsv`  
+- **Outputs:**
+  - `Pathways_categorized_CPM.tsv` is a table of combined KO abundance pathways where the column names are Pathway,Pathway_Name,Top_Category,Sub_Category,sample1,sample2,... and the rows are unique pathway.The abundance is in counts per million reads.
+  - `Pathways_no_categorization_CPM.tsv` is table of combined KO abundance pathway where the column names are Pathway, sample1, sample2 ... and the rows are unique pathways. The abundance is in counts per million reads.
+  - `KEGG_gene_hits_raw.tsv` is a table of combined gene hits where the column names are Gene,KO,sample1,sample2,... and the rows are copies per million reads values for each Gene-KO pair.
+  - `KO_CPM.tsv` is a table with the KO identifier abundance for each sample in counts per million reads.
+  - `Read_counts_per_sample.tsv` is a table with the read counts extracted from the gene_ko_abundance.tsv files.
+
+---
 
 #### Module `mag.smk`
 
@@ -438,7 +473,7 @@ The pipeline is modularized, with each module located in the `metagenomics-snake
 - **Inputs:**
   - Assembly for each sample: `sample_assembly.contigs.fa`
 - **Outputs:**
-  - Bowtie2 index: `sample_assembly.1.bt2`, `sample_assembly.2.bt2`, `sample_assembly.3.bt2`, `sample_assembly.4.bt2`, `sample_assembly.rev.1.bt2`, and `sample_assembly.rev.2.bt2`
+  - These index files are marked as temporary in the rule: `sample_assembly.1.bt2`, `sample_assembly.2.bt2`, `sample_assembly.3.bt2`, `sample_assembly.4.bt2`, `sample_assembly.rev.1.bt2`, and `sample_assembly.rev.2.bt2` If these are required the temporary() flag on the output files in the rule can be removed.
 
 **Rule: `map_reads_to_assembly` *Map paired reads back to assembly***
 
@@ -461,11 +496,9 @@ The pipeline is modularized, with each module located in the `metagenomics-snake
 
 - **Purpose:** MetaBAT2 will bin contigs into potential MAGs.
 - **Inputs:**
-
   - Assembly for each sample: `sample_assembly.contigs.fa`
   - Depth file: `sample_depth.txt`
 - **Outputs:**
-
   - Directory for binned contigs: `SAMPLE_ASSEMBLY/metabat2/sample/bins`
   - Directory for unbinned contigs: `SAMPLE_ASSEMBLY/metabat2/sample/unbinned`
 - **Notes:**
@@ -477,16 +510,116 @@ The pipeline is modularized, with each module located in the `metagenomics-snake
 
 - **Purpose:** Check the completeness and contamination of the bins/potential MAGs.
 - **Inputs:**
-
   - Directory for binned contigs: `SAMPLE_ASSEMBLY/metabat2/sample/bins`
   - CheckM2 database: `uniref100.KO.1.dmnd`
 - **Outputs:**
-
   - CheckM2 directory: `SAMPLE_ASSEMBLY/metabat2/sample/checkm2`
   - Quality report: `quality_report.tsv`
 - **Notes:**
 
   - The `checkm2` directory contains: `quality_report.tsv`.
+
+---
+
+#### Module `db_can.smk`
+
+- For this module, users are encouraged to remove undesired steps from their workflow by editing `workflow/rules/db_can.smk` and the rule all section in the `workflow/Snakefile`. If steps are not removed, all listed outputs will be produced.
+
+**Rule: `pyrodigal` *Predict protein coding genes***
+
+- **Purpose:** Predict protein coding genes to be used by downstream rules for annotating CAZymes, calling CAZyme gene clusters, and CAZyme substrate prediction.
+- **Inputs:**
+  - Assembly for each sample: `sample_assembly.contigs.fa`
+- **Outputs:**
+  - Genes written to GFF format: `sample_genes.gff`
+  - Protein translations in FASTA format: `sample_proteins.faa`
+  - Gene sequences in FASTA format: `sample.cds`
+
+**Rule: `bwa_mem_mapping` *Map reads to assembly***
+
+- **Purpose:** Map the sample reads to the sample assembly.
+- **Inputs:**
+  - Assembly for each sample: `sample_assembly.contigs.fa`
+  - Clean read pairs: `sample_trimmed_clean_R1.fastq.gz`/`sample_trimmed_clean_R2.fastq.gz`
+- **Outputs:**
+  - Binary alignment map: `sample.bam`
+  - Temporary marked index map: temp(`sample.bam.bi`)
+
+**Rule: `dbcan_depth` *Sequnce depth***
+
+- **Purpose:** Determine sequncing depth of predicted CAZyme genes.
+- **Inputs:**
+  - Genes written to GFF format: `sample_genes.gff`
+  - Binary alignment map: `sample.bam`
+  - Index map: temp(`sample.bam.bi`)
+- **Outputs:**
+  - Depth file: `sample.depth.txt`
+
+**Rule: `cazyme_annotation` *Identify and classify CAZymes***
+
+- **Purpose:** Identify and classify carbohydrate-active enzymes (CAZymes) in sample sequences
+- **Inputs:**
+  - Protein translations in FASTA format: `sample_proteins.faa`
+  - Path to the dbCAN database
+- **Outputs:**
+  - Directory named `sample/sample_cazyme` that contains:
+    - Protein FASTA file used as input for all dbCAN searches: `uniInput.faa`
+    - Results from dbCAN HMMER search: `dbCAN_hmm_results.tsv`
+    - Raw output from the dbCAN subfamily HMM search: `dbCANsub_hmm_raw.tsv`
+    - Filtered and processed dbCAN subfamily HMM results: `dbCANsub_hmm_results.tsv`
+    - DIAMOND BLASTP search results against the CAZy protein database: `diamond.out`
+    - Integrated summary file combining results from the dbCAN HMMER search, dbCAN subfamily HMM search, and the DIAMOND BLASTP search: `overview.tsv`
+
+**Rule: `cgc_calling` *CAZymes gene clusters analysis***
+
+- **Purpose:** CAZymes gene clusters calling, GFF processing, and CAZyme annotation in one step.
+- **Inputs:**
+  - Genes written to GFF format: `sample_genes.gff`
+  - Protein translations in FASTA format: `sample_proteins.faa`
+  - Path to the dbCAN database
+- **Outputs:**
+  - Directory named `sample/sample_pul` that contains:
+    - CAzFunctional gene annotation outputs used for CGC definitionZyme annotation outputs (same as cazyme_annotation rule above): `uniInput.faa`, `dbCAN_hmm_results.tsv`, `dbCANsub_hmm_raw.tsv`, `dbCANsub_hmm_results.tsv`, `diamond.out`, and `overview.tsv`
+    - Gene cluster prdiction outputs:`cgc.gff`, `cgc_standard_out.tsv`, `cgc_standard_out_summary.tsv`, and `total_cgc_info.tsv`
+    - These files identify non-CAZyme genes required for CGC definition:`diamond.out.peptidase`, `diamond.out.sulfatase`,`diamond.out.tc`,`diamond.out.tf`, and `STP_hmm_results.tsv`
+- **Notes:**
+
+  - The output directory `sample/sample_pul` should be renamed to `sample/sample_cgc`. The current directory implies that Polysaccharide Utilization Loci (PULs) are identified. This does not happen in this step.
+
+**Rule: `substrate_prediction` *CAZyme Gene Cluster analysis and substrate prediction***
+
+- **Purpose:** Perform CAZyme annotation, CAZyme Gene Cluster (CGC) prediction, GFF processing, and substrate prediction in a single workflow.
+- **Inputs:**
+  - Genes written to GFF format: `sample_genes.gff`
+  - Protein translations in FASTA format: `sample_proteins.faa`
+  - Path to the dbCAN database
+- **Outputs:**
+  - Directory named `sample/sample_dbcan` that contains:
+    - CAZyme annotation outputs: `uniInput.faa`, `dbCAN_hmm_results.tsv`, `dbCANsub_hmm_raw.tsv`, `dbCANsub_hmm_results.tsv`, `diamond.out`, and `overview.tsv`
+    - Gene cluster prdiction outputs:`cgc.gff`, `CGC.faa`,`cgc_standard_out.tsv`, `cgc_standard_out_summary.tsv`, and `total_cgc_info.tsv`
+    - Functional gene annotation outputs used for CGC definition:`diamond.out.peptidase`, `diamond.out.sulfatase`,`diamond.out.tc`,`diamond.out.tf`, and `STP_hmm_results.tsv`
+  - Substrate prediction–specific outputs:
+    - Directory `synteny_pdf` containing synteny plots comparing predicted CGCs to Polysaccharide Utilization Loci (PULs)
+    - BLAST/DIAMOND results comparing predicted CGCs to experimentally characterized PULs in the dbCAN-PUL database: `PUL_blast.out`
+
+**Rule: `get_abundances_rpm` *Normalized abundances of CAZyme families, subfamilies, CGCs, and substrates***
+
+- **Purpose:**Calculate normalized abundances in Reads Per Million (RPM).
+- **Inputs:**
+  - Integrated summary file combining results from the dbCAN HMMER search, dbCAN subfamily HMM search, and the DIAMOND BLASTP search: `overview.tsv`
+  - Depth file: `sample.depth.txt`
+- **Outputs:**
+  - Normalized abundances of CAZyme families:`fam_abund.out`
+  - Normalized abundances of CAZyme subfamilies:`subfam_abund.out`
+  - Normalized abundances of EC numbers associated with CAZyme annotations:`EC_abund.out`
+  - Normalized abundances of predicted substrates:`fam_substrate_abund.out`
+  - Normalized abundances of CAZyme Gene Clusters (CGCs) based on the cumulative abundance of genes within each cluster:`CGC_abund.out`
+  - Predicted CGC substrate abundances inferred from homology to experimentally characterized PULs in the dbCAN-PUL database:`CGC_substrate_PUL_homology.out`
+  - Predicted CGC substrate abundances inferred:`CGC_substrate_majority_voting.out`
+
+- **Notes:**
+
+  - The `overview.tsv` file comes from the `substrate_prediction` rule. In the `get_abundances_rpm` rule. If the `substrate_prediction` rule is removed for the workflow point the input to be `f"{SAMPLE_DBCAN}/{{sample}}/{{sample}}_pul/overview.tsv"` or `f"{SAMPLE_DBCAN}/{{sample}}/{{sample}}_cazyme/overview.tsv"`.
 
 ---
 
@@ -507,6 +640,7 @@ The raw input data must be in the form of paired-end FASTQ files generated from 
 ## Parameters
 
 The `config/config.yaml` file contains the editable pipeline parameters, thread allocation for rules with more than one core, and the relative file paths for input and output. The prefix of the absolute file path must go in `.env`. Most tools in the pipeline have default parameters. The tools with parameters different from default or that can be edited in the `config/config.yaml` file are listed below.
+
 
 | Parameter                                                          | Value                                                                                                                                                                                                                                                                                 |
 | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -529,14 +663,15 @@ The `config/config.yaml` file contains the editable pipeline parameters, thread 
 | *megahit_assembly: out_prefix*                                     | *--out-prefix is the prefix of the outfile in the scratch directory. When it is moved from the scratch to working directory it will be renamed to `sample__assembly.contigs.fa`. In the pipeline this is set to final.*                                                               |
 | *map_reads_to_assembly: max_mem_per_thread*                        | *Maximum memory per node that `Samtools` can use during sorting. In this pipeline it is set at 4G*                                                                                                                                                                                    |
 | *metabat2_binning: min_contig_length*                              | *The minimum length a contig must be to be considered for binning. Set to 2000 bp in this pipeline. Default is 2500 bp.*                                                                                                                                                              |
-| *checkm2: memory_usage*                              | *The lowmem flag reduces the RAM usage of the DIAMOND annotation step by half.*                                                                                                                                                              |
+| *checkm2: memory_usage*                                            | *The lowmem flag reduces the RAM usage of the DIAMOND annotation step by half.*                                                                                                                                                                                                       |
 
 ## Filters and exclusion lists
 
-|Module | Rule | File | Description|
-|------|------|------|-------------|
-|taxonomy.smk| clean_host_bracken | workflow/scripts/clean_bracken_batch.py| This script removes the host taxa from Bracken output files. Taxonomy to be removed at each level is set in the `config/config.yaml`. Then the samples are re-normalized using the total remaining read counts. It is clearly indicated in the script where to edit the filter lists.|
-|kegg.smk| filter_combined_kegg_table | resources/KEGG_BRITE_pathway_exclusion_file.txt| The exclusion list removes non-prokaryotic pathways from the analysis. This tab-delimited file contains two columns: "Pathway_ID" and "Pathway_Name". The "Pathway_ID" is a four-digit string (e.g., 00073, 05418) that corresponds to the [KEGG Pathway Map](https://www.genome.jp/kegg-bin/get_htext?br08901.keg).|
+
+| Module       | Rule                       | File                                            | Description                                                                                                                                                                                                                                                                                                         |
+| -------------- | ---------------------------- | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| taxonomy.smk | clean_host_bracken         | workflow/scripts/clean_bracken_batch.py         | This script removes the host taxa from Bracken output files. Taxonomy to be removed at each level is set in the`config/config.yaml`. Then the samples are re-normalized using the total remaining read counts. It is clearly indicated in the script where to edit the filter lists.                                |
+| kegg.smk     | filter_combined_kegg_table | resources/KEGG_BRITE_pathway_exclusion_file.txt | The exclusion list removes non-prokaryotic pathways from the analysis. This tab-delimited file contains two columns: "Pathway_ID" and "Pathway_Name". The "Pathway_ID" is a four-digit string (e.g., 00073, 05418) that corresponds to the[KEGG Pathway Map](https://www.genome.jp/kegg-bin/get_htext?br08901.keg). |
 
 ---
 
@@ -595,6 +730,22 @@ chmod +x absolute/path/code/metagenomics-snakemake/workflow/scripts/MinPath/glpk
   - KEGG Orthology assignments of pathways `ko_pathway.list`
   - KEGG BRITE hierarchy file `ko00001.keg`
 
+- **dbCAN** The database is required for the carbohydrate-active enzyme workflow. The database description and instructions on preparing the database can be found on [run_dbCAN](https://run-dbcan.readthedocs.io/en/latest/user_guide/prepare_the_database.html). These files must be in your dbCAN database directory:
+
+  - CAZy.dmnd
+  - dbCAN.hmm
+  - dbCAN_sub.hmm
+  - TCDB.dmnd
+  - TF.hmm
+  - TF.dmnd
+  - STP.hmm
+  - sulfatlas_db.dmnd
+  - peptidase_db.dmnd
+  - fam-substrate-mapping.tsv
+  - PUL.dmnd
+  - dbCAN-PUL.xlsx
+  - dbCAN-PLU/PUL*
+
 ### Setup Instructions
 
 #### 1. Installation
@@ -630,7 +781,7 @@ metagenomics_pipeline/
 │       └── config.yaml         ← profile config
 ├── run_snakemake.sh            ← your SLURM launcher
 ├── .env
-└── ...                 
+└── ...               
 ```
 
 ##### 2.2. Profile Configuration
@@ -640,71 +791,6 @@ The SLURM execution settings must be configured in `profiles/slurm/config.yaml.`
 - This configuration file defines resource defaults, cluster submission commands, and job script templates for Snakemake. It should be customized for each specific HPC environment.
 - Remember to update the rerun-triggers: [input, params, software-env] setting whenever the pipeline is modified.
 - Pre-rule resource allocations should also be adjusted according to the size and number of input samples for each rule.
-
-**Example for profiles/slurm/config.yaml:**
-
-```bash
-### How Snakemake assigns resources to rules
-cores: 60
-jobs: 10 
-latency-wait: 60 
-rerun-incomplete: true
-retries: 2            
-max-jobs-per-second: 2 
-executor: slurm
-
-# Prevent rerunning jobs just for Snakefile edits
-## flags available [input, mtime, params, software-env, code, resources, none]
-rerun-triggers: [input, params, software-env]
-
-### Env Vars ###
-envvars:
-  TMPDIR: "/path/to/scratch/${USER}/tmpdir"
-
-default-resources:
-  - slurm_account=<ACCOUNT_NAME>
-  - slurm_partition=<PARTITION_NAME>
-  - slurm_cluster=<CLUSTER_NAME>
-  - slurm_qos=<QOS_LEVEL>      # e.g., 'low' if jobs are held in queue for long
-  - runtime=<RUNTIME_MINUTES>  # e.g., 60
-  - mem_mb=<MEMORY_MB>         # e.g., 4000
-
-### Env modules ###
-# use-envmodules: false 
-
-### Conda ###
-use-conda: true
-conda-frontend: mamba   
-
-### Resource scopes ###
-set-resource-scopes:
-  cores: local 
-
-# Reusable Slurm Blocks (anchors)
-# Standard partition/account/cluster used by most rules
-_slurm_std: &slurm_std
-  slurm_partition: <PARTITION_NAME>
-  slurm_account: <ACCOUNT_NAME_standard> # e.g., standard, large memory 
-  slurm_cluster: <CLUSTER_NAME>
-
-# Large memory partition/account/cluster used by some rules
-_slurm_large: &slurm_large
-  slurm_partition: <PARTITION_NAME>
-  slurm_account: <ACCOUNT_NAME_large> # e.g., standard, large memory 
-  slurm_cluster: <CLUSTER_NAME>
-
-## Per rule resources
-set-resources:
-  fastp_pe:
-    <<: *slurm_std
-    mem_mb: 4000
-    runtime: 40
-
-  kraken2:
-    <<: *slurm_large
-    mem_mb: 600000
-    runtime: 30
-```
 
 #### 3. Configuration
 
@@ -758,26 +844,25 @@ Complete steps **1.Installation**, **2.SLURM Profile**, and **3.Configuration** 
 
 ##### 4.1. Conda environments
 
-Snakemake can automatically create and load Conda environments for each rule in your workflow. Check to see that you have the following configuration files in the `workflow/envs` directory:
+Snakemake can automatically create and load Conda environments for each rule in your workflow. Confirm that the `workflow/envs` directory has the same .yaml files as this Github repo.
 
-- `bedtools.yaml`
-- `bowtie2.yaml`
-- `checkm2.yaml`
-- `diamond.yaml`
-- `fastp.yaml`
-- `kraken2.yaml`
-- `megahit.yaml`
-- `metabat2.yaml`
-- `minpath.yaml`
-- `python3.yaml`
-- `rgi.yaml`
+If the compute cluster on the HPC you are using does not have internet acess then you must create the conda envrioments on the head node.
 
-Load the required conda environments for the pipeline from the main snakemake directory.
+Create conda envriments before any checkpoints:
 
 ```bash
 snakemake --use-conda \
   --conda-create-envs-only \
   --conda-prefix path/to/common/lab/folder/conda/metag-snakemake-conda
+```
+
+Create envriments after checkpoints:
+
+```bash
+#MAG pathway
+snakemake  --use-conda prewarm_mag_gate -j 1 --conda-prefix path/to/common/lab/folder/conda/metag-snakemake-conda
+#dbCAN pathway
+snakemake  --use-conda prewarm_dbcan_gate -j 1 --conda-prefix path/to/common/lab/folder/conda/metag-snakemake-conda
 ```
 
 ##### 4.2. SLURM launcher
@@ -839,12 +924,12 @@ None.
 
 ### Preprocessing Module (`preprocessing.smk`)
 
-| **Output Type**      | **Filename**                                                                                 | **Description**                                                                                                                                                                                                                                                     |
-| ---------------------- | ---------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Trimmed paired reads | temp(`sample_r1.fastq.gz`), temp(`sample_r2.fastq.gz`)                                       | Adapter and quality trimmed paired-end reads from`fastp_pe` rule. These are marked temporary in the rule and will be removed once they are not needed by the pipeline. Can easily be changed by opening `workflow/rules/preprocessing.smk` and removing the temp(). |
-| Fastp Report         | temp(`sample.fastp.html`), temp(`sample.fastp.json`)                                         | Quality score statistics before and after processing.These are marked temporary in the rule and will be removed once they are not needed by the pipeline. Can easily be changed by opening`workflow/rules/preprocessing.smk` and removing the temp().               |
-| Sorted BAM file      | `sample.bam`                                                                                 | Aligned reads to Host/PhiX reference using Bowtie2 (`bowtie2_align` rule).                                                                                                                                                                                          |
-| Clean read pairs     | protected(`sample_trimmed_clean_R1.fastq.gz`), protected(`sample_trimmed_clean_R2.fastq.gz`) | Host- and PhiX-depleted reads from`extract_unmapped_fastq`. These file are marked protected.                                                                                                                                                                        |
+| **Output Type**         | **Filename**                                                                                          | **Description**                                                                                                                                                                                                                                                                                           |
+|------------------------ |-------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Trimmed paired reads    | temp(`sample_r1.fastq.gz`), temp(`sample_r2.fastq.gz`)                                                | Adapter and quality trimmed paired-end reads from `fastp_pe` rule. These are marked temporary in the rule and will be removed once they are not needed by the pipeline. Can easily be changed by opening `workflow/rules/preprocessing.smk` and removing the `temp()`.  |
+| Fastp Report            | temp(`sample.fastp.html`), temp(`sample.fastp.json`)                                                  | Quality score statistics before and after processing. These are marked temporary in the rule and will be removed once they are not needed by the pipeline. Can easily be changed by opening `workflow/rules/preprocessing.smk` and removing the `temp()`.              |
+| Sorted BAM file         | `sample.bam`                                                                                          | Aligned reads to Host/PhiX reference using Bowtie2 (`bowtie2_align` rule).                                                                                                                                                                                          |
+| Clean read pairs        | protected(`sample_trimmed_clean_R1.fastq.gz`), protected(`sample_trimmed_clean_R2.fastq.gz`)          | Host- and PhiX-depleted reads from `extract_unmapped_fastq`. These files are marked protected.                                                                                                                                                                       |                                                                                                                                                                       |
 
 ---
 
@@ -872,18 +957,19 @@ None.
 
 ### KEGG Module (`kegg.smk`)
 
-| **Output Type**              | **Filename**                                         | **Description**                                                                                                                          |
-| ------------------------------ | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| Concatenated read pairs      | `sample_merged.fastq.gz`                             | Merged clean reads for KEGG processing.                                                                                                  |
-| DIAMOND formatted database   | `prokaryotes.pep.dmnd`                               | The KEGG database file`prokaryotes.pep.gz` is used to create the DIAMOND formatted database only if the database does not already exists |
-| DIAMOND database done marker | `prokaryotes_db_done.txt`                            | Confirms that`prokaryotes.pep.dmnd` exists                                                                                               |
-| DIAMOND alignment output     | `sample_diamond_output.m8`                           | Alignment summary of reads vs KEGG protein database.                                                                                     |
-| Read count                   | `sample_read_count.txt`                              | Total read count for concatenated read pairs.                                                                                            |
-| KEGG gene abundance table    | `sample_gene_ko_abundance.tsv`                       | KEGG orthology gene abundance normalized by RPKM and CPM.                                                                                |
-| KEGG KO lists                | `sample_ko_list_raw.txt`, `sample_ko_list_fixed.txt` | KEGG orthology ID lists for MinPath input.                                                                                               |
-| MinPath output               | `sample_minpath_output.txt`                          | Predicted minimal set of KEGG pathways (MinPath).                                                                                        |
-| MinPath pathway abundance    | `sample_aggregated_minpath.tsv`                      | Abundance table for MinPath-confirmed pathways.                                                                                          |
-| KEGG category table          | `sample_ko_pathway_abundance_with_category.tsv`,`sample_ko_pathway_abundance_with_category_sampleID.tsv`, `combined_ko_pathway_abundance_with_category.tsv`, and  `combined_ko_pathway_abundance_with_category_filtered.tsv`     | Pathways summarized into higher-level KEGG BRITE categories for each sample and a combined table of all the pathways with and without an exclusion pathway filter.                                                                             |
+| **Output Type**              | **Filename**                                                                                                                                                                                                                 | **Description**                                                                                                                                                    |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Concatenated read pairs      | `sample_merged.fastq.gz`                                                                                                                                                                                                     | Merged clean reads for KEGG processing.                                                                                                                            |
+| DIAMOND formatted database   | `prokaryotes.pep.dmnd`                                                                                                                                                                                                       | The KEGG database file`prokaryotes.pep.gz` is used to create the DIAMOND formatted database only if the database does not already exists                           |
+| DIAMOND database done marker | `prokaryotes_db_done.txt`                                                                                                                                                                                                    | Confirms that`prokaryotes.pep.dmnd` exists                                                                                                                         |
+| DIAMOND alignment output     | `sample_diamond_output.m8`                                                                                                                                                                                                   | Alignment summary of reads vs KEGG protein database.                                                                                                               |
+| Read count                   | `sample_read_count.txt`                                                                                                                                                                                                      | Total read count for concatenated read pairs.                                                                                                                      |
+| KEGG gene abundance table    | `sample_gene_ko_abundance.tsv`                                                                                                                                                                                               | KEGG orthology gene abundance normalized by RPKM and CPM.                                                                                                          |
+| KEGG KO lists                | `sample_ko_list_raw.txt`, `sample_ko_list_fixed.txt`                                                                                                                                                                         | KEGG orthology ID lists for MinPath input.                                                                                                                         |
+| MinPath output               | `sample_minpath_output.txt`                                                                                                                                                                                                  | Predicted minimal set of KEGG pathways (MinPath).                                                                                                                  |
+| MinPath pathway abundance    | `sample_aggregated_minpath.tsv`                                                                                                                                                                                              | Abundance table for MinPath-confirmed pathways.                                                                                                                    |
+| KEGG category table          | `sample_ko_pathway_abundance_with_category.tsv`,`sample_ko_pathway_abundance_with_category_sampleID.tsv`, `combined_ko_pathway_abundance_with_category.tsv`, and  `combined_ko_pathway_abundance_with_category_filtered.tsv` | Pathways summarized into higher-level KEGG BRITE categories for each sample and a combined table of all the pathways with and without an exclusion pathway filter. |
+| Long format KEGG tables | `Pathways_categorized_CPM.tsv`,`Pathways_no_categorization_CPM.tsv`, `KEGG_gene_hits_raw.tsv`, `KO_CPM.tsv`, and  `Read_counts_per_sample.tsv` | Final tables from the KEGG workflow that are ready for comparisions between samples. |
 
 ---
 
@@ -893,10 +979,39 @@ None.
 | ------------------------ | -------------------------------------------------------------- | --------------------------------------------------------- |
 | Assembly               | `sample_assembly.contigs.fa`                                 | Assembled contigs for each sample (`megahit_assembly`). |
 | Filtered sample list   | `samples_with_contigs.txt`                                   | List of samples with successful assemblies.             |
-| Bowtie2 index          | `sample_assembly.[1-4].bt2`, `sample_assembly.rev.[1-2].bt2` | Bowtie2 index files for each assembly.                  |
+| Bowtie2 index          | temp(`sample_assembly.[1-4].bt2`, `sample_assembly.rev.[1-2].bt2`) These are marked temporary in the rule and will be removed once they are not needed by the pipeline. Can easily be changed by opening `workflow/rules/mag.smk` and removing the `temp()`. | Bowtie2 index files for each assembly.                  |
 | Assembly alignment map | `sample.bam`                                                 | Reads mapped back to assembly.                          |
 | Depth file             | `sample_depth.txt`                                           | Contig depth and variance for binning with MetaBAT2.    |
 | Binning outputs        | `SAMPLE_ASSEMBLY/metabat2/sample/bins`, `.../unbinned`       | Binned and unbinned contigs from MetaBAT2.              |
 | CheckM2 quality report | `quality_report.tsv`                                         | Completeness and contamination metrics for bins/MAGs.   |
+
+### dbCAN Module (`db_can.smk`)
+
+| **Output Type** | **Filename / Directory** | **Description** |
+|-----------------|--------------------------|-----------------|
+| Gene predictions | `sample_genes.gff` | Predicted protein-coding genes in GFF format (from `pyrodigal`). |
+| Protein sequences | `sample_proteins.faa` | Predicted protein sequences used as input for all dbCAN analyses. |
+| Coding sequences | `sample.cds` | Nucleotide coding sequences for predicted genes. |
+| Read alignment map | `sample.bam` | Reads mapped to the sample assembly (from `bwa_mem_mapping`). |
+| Alignment index | temp(`sample.bam.bai`) | Index file for the BAM alignment. Marked temporary in the rule and will be removed once not needed by the pipeline. |
+| Gene depth file | `sample.depth.txt` | Sequencing depth of predicted genes, used for abundance normalization. |
+| CAZyme annotation results | `sample/sample_cazyme/` | Directory containing CAZyme family and subfamily annotations, including HMMER, DIAMOND, and integrated summary outputs. |
+| CGC prediction results | `sample/sample_cgc/` | Directory containing CAZyme Gene Cluster (CGC) predictions, functional gene annotations, and cluster summary tables. |
+| CAZyme + CGC + substrate prediction results | `sample/sample_dbcan/` | Directory containing CAZyme annotation, CGC prediction, and substrate prediction results, including dbCAN-PUL homology analyses. |
+| CAZyme abundance (family) | `fam_abund.out` | Normalized abundances (RPM) of CAZyme families. |
+| CAZyme abundance (subfamily) | `subfam_abund.out` | Normalized abundances (RPM) of CAZyme subfamilies. |
+| CAZyme abundance (EC) | `EC_abund.out` | Normalized abundances (RPM) of EC numbers associated with CAZymes. |
+| Substrate abundance (family-based) | `fam_substrate_abund.out` | Normalized abundances (RPM) of predicted substrates inferred from CAZyme families. |
+| CGC abundance | `CGC_abund.out` | Normalized abundances (RPM) of CAZyme Gene Clusters (CGCs). |
+| CGC substrate abundance (PUL homology) | `CGC_substrate_PUL_homology.out` | Predicted CGC substrate abundances inferred from homology to experimentally characterized PULs. |
+| CGC substrate abundance (majority voting) | `CGC_substrate_majority_voting.out` | Predicted CGC substrate abundances inferred using a majority-voting approach based on CAZyme composition. |
+| Synteny plots | `synteny_pdf/` | Synteny plots comparing predicted CGCs to known Polysaccharide Utilization Loci (PULs). |
+
+Notes:
+
+- Users may enable or disable individual steps by editing `workflow/rules/db_can.smk` and the `rule all` section in `workflow/Snakefile`.
+- CAZyme Gene Clusters (CGCs) are identified prior to substrate prediction.
+- Polysaccharide Utilization Loci (PULs) are not explicitly called; predicted CGCs are compared to experimentally characterized PULs to infer likely substrates.
+- If the `substrate_prediction` rule is disabled, the `get_abundances_rpm` rule can use `overview.tsv` generated by the `cazyme_annotation` or `cgc_calling` rules, with the input path updated accordingly.
 
 ---
