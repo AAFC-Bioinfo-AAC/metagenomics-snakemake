@@ -132,6 +132,8 @@ combine_kegg_category_tables:
   threads: 1
 filter_combined_kegg_table:
   threads: 1
+merge_kegg_results:
+  threads: 1
 ## mag.smk
 megahit_assembly:
   threads: 16
@@ -156,3 +158,21 @@ metabat2_binning:
 checkm2:
   threads: 4
   memory_usage: "--lowmem" # --lowmem flag reduces the RAM usage of the DIAMOND annotation step by half.
+## db_can.smk
+pyrodigal:
+   threads: 8
+cazyme_annotation:
+  threads: 8
+cgc_calling:
+  threads: 8
+substrate_prediction:
+  threads: 8
+bwa_mem_mapping:
+  threads: 12
+dbcan_depth:
+  threads: 16
+  overlap_base_ratio: 0.2 
+  mapping_quality: 30
+  identity: 0.98
+get_abundances_rpm:
+  threads: 1
