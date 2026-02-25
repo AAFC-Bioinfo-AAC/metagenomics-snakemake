@@ -231,3 +231,8 @@ set-resources:
     <<: *slurm_std
     mem_mb: 8000
     runtime: 120
+
+  get_abundances_rpm:
+    <<: *slurm_std
+    mem_mb: 8000
+    runtime: 120
