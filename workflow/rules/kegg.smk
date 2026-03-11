@@ -167,8 +167,11 @@ rule make_ko_lists:
     input:
         abundance = f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_gene_ko_abundance.tsv"
     output:
-        ko_list_raw = f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_ko_list_raw.txt",
-        ko_list_fixed = f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_ko_list_fixed.txt"
+        multiext(
+        f"{KEGG_OUTPUT_DIR}/{{sample}}/{{sample}}_ko_list",
+        "_raw.txt",
+        "_fixed.txt"
+        )
     log:
         f"{LOG_DIR}/kegg/{{sample}}_make_ko_lists.log"
     conda:
