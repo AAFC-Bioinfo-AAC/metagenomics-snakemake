@@ -13,8 +13,12 @@ rule kraken2:
         R1 = f"{HOST_DEP_DIR}/{{sample}}_trimmed_clean_R1.fastq.gz",
         R2 = f"{HOST_DEP_DIR}/{{sample}}_trimmed_clean_R2.fastq.gz"
     output:
-        report = f"{KRAKEN_OUTPUT_DIR}/{{sample}}.report.txt",
-        kraken = f"{KRAKEN_OUTPUT_DIR}/{{sample}}.kraken" 
+    files = multiext(
+        f"{KRAKEN_OUTPUT_DIR}/{{sample}}",
+        ".report.txt",
+        ".kraken"
+    )
+
     log:
         f"{LOG_DIR}/kraken2/{{sample}}.log"
     conda:

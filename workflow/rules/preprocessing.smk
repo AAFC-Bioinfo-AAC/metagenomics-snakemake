@@ -9,12 +9,18 @@ rule fastp_pe:
         fastq1 = lambda wc: SAMPLES[wc.sample]["fastq_1"],
         fastq2 = lambda wc: SAMPLES[wc.sample]["fastq_2"]
     output:
-        r1   = temp(f"{TRIMMED_DIR}/{{sample}}_r1.fastq.gz"),
-        r2   = temp(f"{TRIMMED_DIR}/{{sample}}_r2.fastq.gz"),
-        u1   = temp(f"{TRIMMED_DIR}/{{sample}}_u1.fastq.gz"),
-        u2   = temp(f"{TRIMMED_DIR}/{{sample}}_u2.fastq.gz"),
-        html = temp(f"{TRIMMED_DIR}/{{sample}}.fastp.html"),
-        json = temp(f"{TRIMMED_DIR}/{{sample}}.fastp.json")
+        fastq = temp(multiext(
+            f"{TRIMMED_DIR}/{{sample}}",
+            "_r1.fastq.gz",
+            "_r2.fastq.gz",
+            "_u1.fastq.gz",
+            "_u2.fastq.gz"
+        )),
+        report = temp(multiext(
+            f"{TRIMMED_DIR}/{{sample}}.fastp",
+            ".html",
+            ".json"
+        ))
     log:
         f"{LOG_DIR}/fastp/{{sample}}.fastp.log"
     params:
