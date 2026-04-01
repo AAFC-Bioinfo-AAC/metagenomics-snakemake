@@ -4,6 +4,10 @@
     Date created: 2025/09/23
     Snakemake version: 9.9.0
 '''
+
+SAMPLE_ASSEMBLY = os.path.join(PROJECT_ROOT, config["mag_output_dir"])
+CHECKM2_DB      = config["checkm2_DB"]
+
 # -------------------------------------------------------------------
 # Function for checkpoint
 # -------------------------------------------------------------------

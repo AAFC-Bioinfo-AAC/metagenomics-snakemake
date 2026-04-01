@@ -4,6 +4,11 @@
     Date created: 2025/12/18
     Snakemake version: 9.9.0
 '''
+
+SAMPLE_DBCAN   = os.path.join(PROJECT_ROOT, config["dbcan_output_dir"])
+DB_CAN_DB_PATH = config["dbcan_DB_path"]
+
+
 # -------------------------------------------------------------------
 # Function for checkpoint
 # -------------------------------------------------------------------

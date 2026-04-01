@@ -5,6 +5,11 @@
     Snakemake version: 9.9.0
     Python version: 3.9
 '''
+
+KRAKEN_OUTPUT_DIR  = os.path.join(PROJECT_ROOT, config["kraken_short_reads_dir"])
+BRACKEN_OUTPUT_DIR = os.path.join(PROJECT_ROOT, config["bracken_short_reads_dir"])
+TAXONOMY_DB        = config["gtbd_DB"]
+
 rule kraken2:
     wildcard_constraints:
         sample = '[^/]+'

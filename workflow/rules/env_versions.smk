@@ -1,5 +1,6 @@
 # Path to the conda env YAML files, relative to the Snakefile location
 ENVS_DIR = os.path.join(os.path.dirname(workflow.snakefile), "envs")
+ENVS_DIR = "/fs/hpci-nas4-sci/data/aafc/projects/J-003165_abcc_rcba/workspace/metaG-testing-students/issue8_alex/metagenomics-snakemake/workflow/envs"
 
 rule software_report:
     output:

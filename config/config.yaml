@@ -16,18 +16,20 @@ conda_prefix: "code/metag-smk-conda-env"
 # -------------------------------------------------------------------
 log_files: "code/metagenomics-snakemake/workflow/logs"
 software_versions: "code/metagenomics-snakemake/results/software_versions"
-reads_dir: "data/raw/fastq"
-bowtie2_index: "code/metagenomics-snakemake/resources/bowtie2_index/Cow_phiX"
-reads_host_dep: "workspace/clean_reads"
-merged_reads: "workspace/merged_reads"
-kraken_short_reads_dir: "workspace/taxonomy_short_reads/kraken2"
-bracken_short_reads_dir: "workspace/taxonomy_short_reads/bracken"
-amr_screening_dir: "workspace/amr_screening"
-kegg_output_dir: "workspace/kegg_analysis"
-kegg_custom_list: "code/metagenomics-snakemake/resources"
-kegg_diamond_DB: "data/reference/databases/KEGG"
-mag_output_dir: "workspace/individual_assemblies"
-
+reads_dir: "/fs/hpci-nas4-sci/data/aafc/projects/J-003165_abcc_rcba/workspace/metaG-testing-students/issue8_alex/metagenomics-snakemake/raw_data_symlink"
+reads_trimmed: "data/raw/metagenomics_test/02_trimmed"
+reads_host_dep: "data/raw/metagenomics_test/03_reads_host_dep"
+merged_reads: "data/raw/metagenomics_test/04_merged_reads"
+kraken_short_reads_dir: "data/raw/metagenomics_test/05_kraken_short_reads_dir"
+bracken_short_reads_dir: "data/raw/metagenomics_test/06_bracken_short_reads_dir"
+amr_screening_dir: "data/raw/metagenomics_test/07_amr_screening_dir"
+kegg_output_dir: "data/raw/metagenomics_test/08_kegg_output_dir"
+mag_output_dir: "data/raw/metagenomics_test/09_mag_output_dir"
+kegg_diamond_DB: "data/raw/metagenomics_test/10_kegg_diamond_DB"
+kegg_custom_list: "/fs/hpci-nas4-sci/data/aafc/projects/J-003165_abcc_rcba/workspace/metaG-testing-students/issue8_alex/metagenomics-snakemake/resources"
+dbcan_output_dir: "data/raw/metagenomics_test/12_dbcan_output_dir"
+bowtie2_index: "/fs/hpci-nas4-sci/data/aafc/projects/J-003165_abcc_rcba/workspace/metaG-testing-students/issue8_alex/metagenomics-snakemake/resources/bowtie2_index/Cow_phiX"
+conda_prefix: "data/raw/metagenomics_test/14_conda_prefix"
 ### File path for CARD database if the user set it up. This is a fallback if there is no common database
 card_latest: "/code/metagenomics-snakemake/localDB"
 
@@ -38,11 +40,12 @@ reads_trimmed: "fastp_trimmed"
 # Directories paths must be absolute paths to common drive
 # -------------------------------------------------------------------
 # Must be absolute paths
-gtbd_DB: "abs/path/to/db/data/reference/databases/Kraken2_GTDB226_plus_host"
-ko_lists: "abs/path/to/db/reference/kegg/genes/ko"
-kegg_fasta: "abs/path/to/db/reference/kegg/genes/fasta"
-kegg_brite_hierarchy: "abs/path/to/db/reference/kegg/brite/ko"
-checkm2_DB: "abs/path/to/db/reference/CheckM2_database/uniref100.KO.1.dmnd"
+gtbd_DB: "/gpfs/fs7/aafc/common/reference/kraken2_gtdb/release226"
+ko_lists: "/gpfs/fs7/aafc/common/reference/kegg/genes/ko"
+kegg_fasta: "/gpfs/fs7/aafc/common/reference/kegg/genes/fasta"
+kegg_brite_hierarchy: "/fs/hpci-nas4-sci/data/aafc/projects/J-003165_abcc_rcba/workspace/metaG-testing-students/issue8_alex/metagenomics-snakemake/resources"
+checkm2_DB: "/gpfs/fs7/aafc/common/reference/CheckM2_database"
+dbcan_DB_path: "/gpfs/fs7/aafc/common/reference/dbcan/db"
 
 # -------------------------------------------------------------------
 # Bracken taxonomy filtering parameters used by clean_host_bracken rule

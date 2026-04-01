@@ -5,6 +5,9 @@
     Snakemake version: 9.9.0
     Python version: 3.8
 '''
+
+CARD_RGI_OUTPUT_DIR = os.path.join(PROJECT_ROOT, config["amr_screening_dir"])
+
 # -------------------------------------------------------------------
 # CARD DB setup
 # -------------------------------------------------------------------

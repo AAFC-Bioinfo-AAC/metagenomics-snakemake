@@ -4,6 +4,15 @@
     Date created: 2025/08/25
     Snakemake version: 9.9.0
 '''
+
+MERGED_R1_R2         = os.path.join(PROJECT_ROOT, config["merged_reads"])
+KEGG_OUTPUT_DIR      = os.path.join(PROJECT_ROOT, config["kegg_output_dir"])
+KEGG_DIAMOND         = os.path.join(PROJECT_ROOT, config["kegg_diamond_DB"])
+KEGG_CUSTOM_LIST     = os.path.join(PROJECT_ROOT, config["kegg_custom_list"])
+KEGG_KO              = config["ko_lists"]
+KEGG_FASTA           = config["kegg_fasta"]
+KEGG_BRITE_HIERARCHY = config["kegg_brite_hierarchy"]
+
 rule merge_read_pairs:
     input: 
         R1 = f"{HOST_DEP_DIR}/{{sample}}_trimmed_clean_R1.fastq.gz",
