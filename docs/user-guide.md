@@ -856,7 +856,7 @@ snakemake --use-conda \
   --conda-prefix path/to/common/lab/folder/conda/metag-snakemake-conda
 ```
 
-Create envriments after checkpoints:
+Create environments after checkpoints:
 
 ```bash
 #MAG pathway
