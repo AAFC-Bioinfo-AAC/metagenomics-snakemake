@@ -873,7 +873,7 @@ This is the script you use to submit the Snakemake pipeline to SLURM.
 - Activates the Snakemake environment
 - Submits and manages jobs using the Snakemake `--profile` configuration `(profiles/slurm/)`.
 - Contains any additional Snakemake arguments (e.g.., `--unlock`, `--dry-run`, `--rerun-incomplete`)
-- For a snakemake report with runtime and software versions use --report path/to/metatranscriptomics_report.html after the pipeline has completed
+- For a snakemake report with runtime and software versions use --report path/to/metagenomics_report.html after the pipeline has completed
 
 ```bash
 #!/bin/bash
@@ -894,7 +894,7 @@ export PATH="$PWD/bin:$PATH"
   snakemake \
     --profile absolute/path/to/profiles/slurm \
     --configfile absolute/path/to/config/config.yaml \
-    --conda-prefix absolute/path/to/common/conda/metatranscriptomics-snakemake-conda \
+    --conda-prefix absolute/path/to/common/conda/metagenomics-snakemake-conda \
     --printshellcmds \
     --keep-going 
 ```
