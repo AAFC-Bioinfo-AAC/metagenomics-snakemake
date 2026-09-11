@@ -198,5 +198,5 @@ rule all:
         # Software versions report
         f"{SOFTWARE_VERSIONS}/software_versions_summary.txt",
         f"{SOFTWARE_VERSIONS}/key_bioinformatics_software.txt",
-        report(f"{SOFTWARE_VERSIONS}/key_bioinformatics_software.html")
+        f"{SOFTWARE_VERSIONS}/key_bioinformatics_software.html",
         

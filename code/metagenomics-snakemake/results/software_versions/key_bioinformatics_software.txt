@@ -1,0 +1,25 @@
+==========================================================
+   Key Bioinformatics Software (Pinned in env YAMLs)
+==========================================================
+
+Software                       Version              Source YAML
+----------------------------------------------------------
+bedtools                       2.31                 bedtools.yaml
+bowtie2                        2.5.4                bowtie2.yaml
+bracken                        2.7.0                kraken2.yaml
+bwa                            0.7.19               bwa.yaml
+checkm2                        1.1.0                checkm2.yaml
+dbcan                          5.2.1                dbcan.yaml
+diamond                        2.1.13               diamond.yaml
+fastp                          0.23.4               fastp.yaml
+htslib                         1.21                 bedtools.yaml
+kraken2                        2.1.6                kraken2.yaml
+libdeflate                     1.24                 bedtools.yaml
+megahit                        1.2.9                megahit.yaml
+metabat2                       2.18                 metabat2.yaml
+pigz                           2.6                  bedtools.yaml
+pyrodigal                      3.6.3                pyrodigal.yaml
+python                         3.9                  kraken2.yaml
+rgi                            6.0.4                rgi.yaml
+samtools                       1.21                 bedtools.yaml
+

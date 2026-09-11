@@ -1,0 +1,6 @@
+==========================================================
+       Conda Environment Exact Package Versions
+==========================================================
+
+Detected Conda environments under: /fs/hpci-nas4-sci/data/aafc/projects/J-003165_abcc_rcba/workspace/metaG-testing-students/issue8_alex/metagenomics-snakemake/data/raw/metagenomics_test/14_conda_prefix
+
