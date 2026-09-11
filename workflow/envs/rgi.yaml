@@ -6,7 +6,7 @@ channels:
 dependencies:
   - python=3.8
   - pip
-  - rgi=6.0.4  # or your required version
+  - rgi=6.0.8  # or your required version
   - kma
   - pip:
       - rgi  # this line ensures pip re-installs RGI with full Python source
