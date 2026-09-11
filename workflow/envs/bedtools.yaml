@@ -4,7 +4,7 @@ channels:
   - bioconda
   - defaults
 dependencies:
-  - samtools=1.21
+  - samtools=1.24
   - htslib=1.21
   - libdeflate=1.24
   - bedtools=2.31
