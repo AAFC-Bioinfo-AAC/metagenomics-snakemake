@@ -14,7 +14,7 @@ import re
 
 def extract_sample(col):
     # Only strip from sample columns (not metadata columns)
-    match = re.match(r"^([A-Za-z0-9\-]+)_bracken.*", col)
+    match = re.match(r"^(.+?)_bracken", col)
     return match.group(1) if match else col
 
 input_tables = {
