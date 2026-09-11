@@ -30,7 +30,6 @@ checkpoint filter_assemblies:
         ),
         gate = f"{LOG_DIR}/envs/conda_gate_mag.txt"
     output:
-        # CHANGED: Both files written by the checkpoint are declared outputs.
         passed_samples = f"{SAMPLE_ASSEMBLY}/passed_checkpoint_assemblies.txt",
         metrics = f"{SAMPLE_ASSEMBLY}/samples_with_contigs.metrics.tsv"
     params:
@@ -134,8 +133,6 @@ checkpoint filter_assemblies:
         with open(output.passed_samples, "w", encoding="utf-8") as out:
             out.write("\n".join(passed) + ("\n" if passed else ""))
 
-        # CHANGED: A metrics-write failure now fails the checkpoint instead of
-        # being silently ignored.
         with open(output.metrics, "w", encoding="utf-8") as metrics:
             metrics.write("\t".join(rows[0]) + "\n")
             for row in rows[1:]:
@@ -198,7 +195,6 @@ rule megahit_assembly:
         r"""
         set -euo pipefail
 
-        # CHANGED: All generated-file and log directories are created explicitly.
         mkdir -p "$(dirname {log:q})"
         mkdir -p "$(dirname {output.assembly:q})"
 
@@ -244,8 +240,6 @@ rule megahit_assembly:
         src_contigs="$run_dir/${{out_prefix}}.contigs.fa"
         dest={output.assembly:q}
 
-        # CHANGED: Remove markers created by older versions of this rule.
-        # The empty assembly itself is sufficient for the filtering checkpoint.
         rm -f -- "${{dest}}.EMPTY"
 
         if [[ ! -s "$src_contigs" ]]; then
@@ -269,7 +263,6 @@ rule index_assembly:
     input:
         assembly = f"{SAMPLE_ASSEMBLY}/{{sample}}_assembly.contigs.fa"
     output:
-        # CHANGED: Force and declare the predictable large-index .bt2l format.
         temp(
             expand(
                 f"{SAMPLE_ASSEMBLY}/{{sample}}_assembly.{{suffix}}",
@@ -346,7 +339,6 @@ rule map_reads_to_assembly:
         mkdir -p "$(dirname {log:q})"
         mkdir -p "$(dirname {output.bam:q})"
 
-        # CHANGED: Require enough threads for the two concurrently running tools.
         total_threads={threads}
         if (( total_threads < 2 )); then
             echo "map_reads_to_assembly requires at least 2 threads" >> {log:q}
@@ -488,9 +480,7 @@ rule checkm2_bins:
         bins_dir = f"{SAMPLE_ASSEMBLY}/metabat2/{{sample}}/bins",
         checkm2_db = f"{CHECKM2_DB}"
     output:
-        # CHANGED: Do not declare both a directory and a file within it.
         checkm2_summary = f"{SAMPLE_ASSEMBLY}/metabat2/{{sample}}/checkm2/quality_report.tsv",
-        # CHANGED: Record whether CheckM2 ran or no bins were available.
         checkm2_status = f"{SAMPLE_ASSEMBLY}/metabat2/{{sample}}/checkm2/status.tsv"
     log:
         f"{LOG_DIR}/individual_assemblies/{{sample}}_checkm2.log"
@@ -506,8 +496,6 @@ rule checkm2_bins:
         mkdir -p "$(dirname {log:q})"
         mkdir -p "$(dirname {output.checkm2_summary:q})"
 
-        # CHANGED: An empty MetaBAT2 result is a valid biological outcome. Do
-        # not call CheckM2 with an empty input directory.
         if ! find {input.bins_dir:q} -maxdepth 1 -type f -name '*.fa' -print -quit \
             | grep -q .; then
             echo "No genome bins were produced; CheckM2 was not run" >> {log:q}
