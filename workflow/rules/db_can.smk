@@ -155,7 +155,6 @@ rule cazyme_annotation:
         faa = f"{SAMPLE_DBCAN}/{{sample}}/{{sample}}_proteins.faa",
         dbcan_db = DB_CAN_DB_PATH
     output:
-
         overview = f"{SAMPLE_DBCAN}/{{sample}}/{{sample}}_cazyme/overview.tsv"
     params:
         outdir = f"{SAMPLE_DBCAN}/{{sample}}/{{sample}}_cazyme"
@@ -188,7 +187,6 @@ rule cgc_calling:
         gff = f"{SAMPLE_DBCAN}/{{sample}}/{{sample}}_genes.gff",
         dbcan_db = DB_CAN_DB_PATH
     output:
-
         overview = f"{SAMPLE_DBCAN}/{{sample}}/{{sample}}_pul/overview.tsv",
         cgc = f"{SAMPLE_DBCAN}/{{sample}}/{{sample}}_pul/cgc.gff",
         cgc_table = f"{SAMPLE_DBCAN}/{{sample}}/{{sample}}_pul/cgc_standard_out.tsv"
@@ -226,7 +224,6 @@ rule substrate_prediction:
         gff = f"{SAMPLE_DBCAN}/{{sample}}/{{sample}}_genes.gff",
         dbcan_db = DB_CAN_DB_PATH
     output:
-
         overview = f"{SAMPLE_DBCAN}/{{sample}}/{{sample}}_dbcan/overview.tsv",
         cgc_table = f"{SAMPLE_DBCAN}/{{sample}}/{{sample}}_dbcan/cgc_standard_out.tsv",
         substrate = f"{SAMPLE_DBCAN}/{{sample}}/{{sample}}_dbcan/substrate_prediction.tsv"
