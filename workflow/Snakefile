@@ -1,4 +1,4 @@
-configfile: "config/config.yaml"
+configfile: workflow.basedir + "/../config/config.yaml"
 
 from dotenv import load_dotenv
 import csv
@@ -10,7 +10,8 @@ import sys
 # Environment and project paths
 # -------------------------------------------------------------------
 
-PIPELINE_DIR = os.path.dirname(os.path.abspath(__file__))
+WORKFLOW_DIR = os.path.abspath(workflow.basedir)
+PIPELINE_DIR = os.path.abspath(os.path.join(WORKFLOW_DIR, ".."))
 ENV_FILE = os.path.join(PIPELINE_DIR, ".env")
 
 load_dotenv(ENV_FILE, override=True)
@@ -221,8 +222,8 @@ SAMPLE_NAMES = list(SAMPLES.keys())
 # Helpers
 # -------------------------------------------------------------------
 
-if PIPELINE_DIR not in sys.path:
-    sys.path.insert(0, PIPELINE_DIR)
+if WORKFLOW_DIR not in sys.path:
+    sys.path.insert(0, WORKFLOW_DIR)
 
 from scripts.helpers import parse_filtered_samples
 
