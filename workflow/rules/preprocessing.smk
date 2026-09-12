@@ -1,9 +1,10 @@
 '''
     Filename: preprocessing.smk
-    Author: Katherine James-Gzyl
-    Date created: 2025/07/24
-    Snakemake version: 9.9.0
+    Author: Katherine James-Gzyl and Devin Holman
+    Date created: 2026/09/11
+    Snakemake version: 9.20.0
 '''
+
 rule fastp_pe:
     input:
         fastq1 = lambda wc: SAMPLES[wc.sample]["fastq_1"],
@@ -26,26 +27,35 @@ rule fastp_pe:
         qualified_quality_phred = config.get("fastp", {}).get("qualified_quality_phred", 15),
         length_required = config.get("fastp", {}).get("length_required", 100)
     threads: config.get("fastp", {}).get("threads", 2)
-    conda: "../envs/fastp.yaml"
+    conda:
+        "../envs/fastp.yaml"
     shell:
         r"""
+        set -euo pipefail
+
+        mkdir -p "$(dirname {output.r1:q})" "$(dirname {log:q})"
+
         fastp \
-            --in1 {input.fastq1} \
-            --in2 {input.fastq2} \
-            --out1 {output.r1} \
-            --out2 {output.r2} \
-            --unpaired1 {output.u1} \
-            --unpaired2 {output.u2} \
-            {params.cut_tail} {params.cut_front} {params.detect_adapter} \
+            --in1 {input.fastq1:q} \
+            --in2 {input.fastq2:q} \
+            --out1 {output.r1:q} \
+            --out2 {output.r2:q} \
+            --unpaired1 {output.u1:q} \
+            --unpaired2 {output.u2:q} \
+            {params.cut_tail} \
+            {params.cut_front} \
+            {params.detect_adapter} \
             --cut_mean_quality {params.cut_mean_quality} \
             --cut_window_size {params.cut_window_size} \
             --qualified_quality_phred {params.qualified_quality_phred} \
             --length_required {params.length_required} \
-            --json {output.json} \
-            --html {output.html} \
+            --json {output.json:q} \
+            --html {output.html:q} \
             --thread {threads} \
-            > {log} 2>&1
+            > {log:q} 2>&1
         """
+
+
 rule bowtie2_align:
     input:
         r1 = f"{TRIMMED_DIR}/{{sample}}_r1.fastq.gz",
@@ -56,34 +66,53 @@ rule bowtie2_align:
     log:
         f"{LOG_DIR}/bowtie2/{{sample}}.log"
     params:
-        extra= lambda wc: f"-R '@RG\\tID:{wc.sample}\\tSM:{wc.sample}'"
+        rg_id = lambda wc: wc.sample,
+        rg_sm = lambda wc: f"SM:{wc.sample}"
     threads: config.get("bowtie2_align", {}).get("threads", 12)
     conda:
         "../envs/bowtie2.yaml"
     shell:
         r"""
-        # Split threads safely
-        bt2_threads=$(( ({threads}+1)/2 ))
-        sort_threads=$(( ({threads}+2)/3 ))
-        view_threads=$(( {threads} - bt2_threads - sort_threads ))
-        # Ensure no thread count is 0
-        [ $bt2_threads -lt 1 ] && bt2_threads=1
-        [ $sort_threads -lt 1 ] && sort_threads=1
-        [ $view_threads -lt 1 ] && view_threads=1
-
         set -euo pipefail
 
-        bowtie2 -x {BOWTIE_INDEX} -1 {input.r1} -2 {input.r2} --threads $bt2_threads {params.extra} 2>> {log} \
-        | samtools view -u -@ $view_threads 2>> {log} \
-        | samtools sort -@ $sort_threads -o {output.bam} 2>> {log}
-        """  
+        mkdir -p "$(dirname {output.bam:q})" "$(dirname {log:q})"
+
+        if (( {threads} < 3 )); then
+            echo "ERROR: bowtie2_align requires at least 3 threads; received {threads}." >> {log:q}
+            exit 1
+        fi
+
+        # bowtie2, samtools view, and samtools sort run concurrently in this pipe.
+        # Reserve one CPU for samtools view and one for samtools sort's main thread.
+        bt2_threads=$(( {threads} / 2 ))
+        [ $bt2_threads -lt 1 ] && bt2_threads=1
+        sort_extra=$(( {threads} - bt2_threads - 2 ))
+
+        if (( sort_extra > 0 )); then
+            sort_threads="-@ $sort_extra"
+        else
+            sort_threads=""
+        fi
+
+        bowtie2 \
+            -x {BOWTIE_INDEX:q} \
+            -1 {input.r1:q} \
+            -2 {input.r2:q} \
+            --threads "$bt2_threads" \
+            --rg-id {params.rg_id:q} \
+            --rg {params.rg_sm:q} \
+            2>> {log:q} \
+        | samtools view -u 2>> {log:q} \
+        | samtools sort $sort_threads -o {output.bam:q} - 2>> {log:q}
+        """
+
+
 rule extract_unmapped_fastq:
     input:
-        bam=f"{TRIMMED_DIR}/bam/{{sample}}.bam"
+        bam = f"{TRIMMED_DIR}/bam/{{sample}}.bam"
     output:
-        r1=protected(f"{HOST_DEP_DIR}/{{sample}}_trimmed_clean_R1.fastq.gz"),
-        r2=protected(f"{HOST_DEP_DIR}/{{sample}}_trimmed_clean_R2.fastq.gz")
-
+        r1 = protected(f"{HOST_DEP_DIR}/{{sample}}_trimmed_clean_R1.fastq.gz"),
+        r2 = protected(f"{HOST_DEP_DIR}/{{sample}}_trimmed_clean_R2.fastq.gz")
     log:
         f"{LOG_DIR}/bedtools/{{sample}}.log"
     threads: config.get("extract_unmapped_fastq", {}).get("threads", 4)
@@ -91,23 +120,43 @@ rule extract_unmapped_fastq:
         "../envs/bedtools.yaml"
     shell:
         r"""
-        # Split threads safely
-        samtools_threads=$(( ({threads}*4 + 4)/5 ))   # ~80% for samtools
-        pigz_threads=$(( {threads} - samtools_threads )) # rest for pigz
-        # Ensure no thread count is 0
-        [ $samtools_threads -lt 1 ] && samtools_threads=1
-        [ $pigz_threads -lt 1 ] && pigz_threads=1
-        
-        TMPDIR="${{TMPDIR:-/tmp}}"
-        JOB_ID="${{SLURM_JOB_ID:-manual}}"
-        TMPJOB=$(mktemp -d "${{TMPDIR}}/bam2fq_${{JOB_ID}}_XXXXXX" 2>> {log} || echo "/tmp/bam2fq_${{JOB_ID}}_manualtmp")
+        set -euo pipefail
 
-        samtools view -u -f 12 -F 256 --threads $samtools_threads {input.bam} 2>> {log} \
-        | samtools sort -n --threads $samtools_threads -T $TMPJOB/{wildcards.sample}_sort_tmp -O BAM - 2>> {log} \
-        | bedtools bamtofastq -i - 2>> {log} \
-            -fq >(pigz -p $pigz_threads --fast > {output.r1}) \
-            -fq2 >(pigz -p $pigz_threads --fast > {output.r2})
+        mkdir -p "$(dirname {output.r1:q})" "$(dirname {log:q})"
 
-        echo "Temporary directory to be removed: $TMPJOB" >> {log}
-        rm -rf "$TMPJOB"
+        if (( {threads} < 4 )); then
+            echo "ERROR: extract_unmapped_fastq requires at least 4 threads; received {threads}." >> {log:q}
+            exit 1
+        fi
+
+        # This pipeline has four concurrent components at minimum:
+        # samtools view, samtools sort, bedtools bamtofastq, and pigz.
+        # Give any CPUs beyond those four to samtools sort.
+        sort_extra=$(( {threads} - 4 ))
+        if (( sort_extra > 0 )); then
+            sort_threads="-@ $sort_extra"
+        else
+            sort_threads=""
+        fi
+
+        tmpbase="${{TMPDIR:-/tmp}}"
+        job_id="${{SLURM_JOB_ID:-manual}}"
+        mkdir -p "$tmpbase"
+        tmpjob=$(mktemp -d "${{tmpbase%/}}/bam2fq_${{job_id}}_XXXXXX")
+
+        cleanup() {{
+            rm -rf -- "$tmpjob"
+        }}
+        trap cleanup EXIT
+
+        # -f 12 retains read pairs for which both the read and its mate are unmapped.
+        # -F 256 excludes secondary alignments. The name sort is required by
+        # bedtools bamtofastq when producing paired FASTQ files with -fq2.
+        samtools view -u -f 12 -F 256 {input.bam:q} 2>> {log:q} \
+        | samtools sort -n $sort_threads \
+            -T "$tmpjob/{wildcards.sample}_sort_tmp" \
+            -O BAM - 2>> {log:q} \
+        | bedtools bamtofastq -i - 2>> {log:q} \
+            -fq >(pigz -p 1 --fast > {output.r1:q}) \
+            -fq2 >(pigz -p 1 --fast > {output.r2:q})
         """
