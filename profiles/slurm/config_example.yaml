@@ -1,61 +1,76 @@
-## For Snakemake to recognize this file it must be named config.yaml.
-## Specific information to our HPC configuration has been replaced in this example with <CAPITAL LETTERS>
-## Please edit to include the configuration of the cluster you are using
+## For Snakemake to recognize this file when using a profile directory,
+## name it config.yaml (profile.yaml is also supported by newer Snakemake).
+##
+## Cluster-specific values have been replaced with <CAPITAL_LETTER_PLACEHOLDERS>.
+## Edit these values for the HPC environment where the workflow will run.
 
-### How Snakemake will run on SBATCH ###
-cores: 60
-jobs: 10 
-latency-wait: 60 
-rerun-incomplete: true
-retries: 2              
-max-jobs-per-second: 2 
+### How Snakemake will run on SLURM ###
 executor: slurm
+cores: 60
+jobs: 10
+latency-wait: 60
+rerun-incomplete: true
+retries: 2
+max-jobs-per-second: 2
 
-# Prevent rerunning jobs just for Snakefile edits
-## flags available [input, mtime, params, software-env, code, resources, none]
-rerun-triggers: [input, params, software-env]
+# Prevent rerunning jobs solely because workflow source code changed.
+# Available rerun triggers include: input, mtime, params, software-env,
+# code, resources, and none.
+rerun-triggers:
+  - input
+  - params
+  - software-env
 
-### Env Vars ###
+### Environment variables ###
+# These variables must already exist in the environment when Snakemake runs.
+# The workflow's .env file and/or launcher can be used to define them.
 envvars:
-  TMPDIR: "/<PATH>/<TO>/<SCRATCH>/${USER}/tmpdir"
+  - PROJECT_ROOT
+  - TMPDIR
+  - RGI_CARD
 
-### Set shadow directory to scratch ###
-shadow-prefix: "/<PATH>/<TO>/<SCRATCH>/${USER}/tmpdir"
+### Shadow directory ###
+# Profile environment variables such as $USER are expanded by Snakemake.
+shadow-prefix: "/<PATH>/<TO>/<SHARED_SCRATCH>/$USER/snakemake-shadow"
 
+### Default SLURM resources ###
 default-resources:
-  - slurm_account=<ACCOUNT_NAME>
-  - slurm_partition=<PARTITION_NAME>
-  - slurm_cluster=<CLUSTER_NAME>
-  - slurm_qos=<QOS_LEVEL>      # e.g., 'low' if jobs are held in queue for long
-  - runtime=<RUNTIME_MINUTES>  # e.g., 60
-  - mem_mb=<MEMORY_MB>         # e.g., 4000
-
-### Env modules ###
-# use-envmodules: false 
+  slurm_account: <ACCOUNT_NAME>
+  slurm_partition: <PARTITION_NAME>
+  slurm_cluster: <CLUSTER_NAME>
+  runtime: <RUNTIME_MINUTES>   # e.g. 60
+  mem_mb: <MEMORY_MB>          # e.g. 4000
+  tmpdir: "$TMPDIR"
+  # Uncomment if your cluster requires a QOS:
+  # slurm_qos: <QOS_LEVEL>
 
 ### Conda ###
 use-conda: true
-conda-frontend: mamba   
+conda-frontend: mamba
 
-### Resource scopes ###
-set-resource-scopes:
-  cores: local 
+# -------------------------------------------------------------------
+# Reusable SLURM blocks
+# -------------------------------------------------------------------
 
-# Reusable Slurm Blocks (anchors)
-# Standard partition/account/cluster used by most rules
+# Standard partition/account/cluster used by most rules.
 _slurm_std: &slurm_std
   slurm_partition: <PARTITION_NAME>
-  slurm_account: <ACCOUNT_NAME_standard> # e.g., standard, large memory 
+  slurm_account: <ACCOUNT_NAME_STANDARD>
   slurm_cluster: <CLUSTER_NAME>
 
-# Large memory partition/account/cluster used by some rules
+# Large-memory partition/account/cluster used by selected rules.
 _slurm_large: &slurm_large
-  slurm_partition: <PARTITION_NAME>
-  slurm_account: <ACCOUNT_NAME_large> # e.g., standard, large memory 
+  slurm_partition: <LARGE_MEMORY_PARTITION_NAME>
+  slurm_account: <ACCOUNT_NAME_LARGE>
   slurm_cluster: <CLUSTER_NAME>
 
-## Per rule resources
+# -------------------------------------------------------------------
+# Per-rule resources
+# -------------------------------------------------------------------
+
 set-resources:
+
+  # Preprocessing
   fastp_pe:
     <<: *slurm_std
     mem_mb: 4000
@@ -71,6 +86,7 @@ set-resources:
     mem_mb: 18000
     runtime: 60
 
+  # Taxonomy
   kraken2:
     <<: *slurm_large
     mem_mb: 840000
@@ -101,7 +117,8 @@ set-resources:
     mem_mb: 2000
     runtime: 30
 
-  rgi_reload_database:
+  # AMR
+  rgi_validate_database:
     <<: *slurm_std
     mem_mb: 2000
     runtime: 30
@@ -111,6 +128,7 @@ set-resources:
     mem_mb: 380000
     runtime: 300
 
+  # KEGG / MinPath
   merge_read_pairs:
     <<: *slurm_std
     mem_mb: 500
@@ -120,7 +138,7 @@ set-resources:
     <<: *slurm_std
     mem_mb: 64000
     runtime: 7600
-    
+
   kegg_diamond:
     <<: *slurm_std
     mem_mb: 64000
@@ -136,6 +154,11 @@ set-resources:
     mem_mb: 8000
     runtime: 160
 
+  make_ko_lists:
+    <<: *slurm_std
+    mem_mb: 2000
+    runtime: 30
+
   minpath:
     <<: *slurm_std
     mem_mb: 4000
@@ -146,11 +169,16 @@ set-resources:
     mem_mb: 4000
     runtime: 160
 
-  kegg_category_sampleIDs:
+  kegg_category_mapping:
     <<: *slurm_std
     mem_mb: 4000
     runtime: 30
-  
+
+  kegg_category_sampleID:
+    <<: *slurm_std
+    mem_mb: 4000
+    runtime: 30
+
   combine_kegg_category_tables:
     <<: *slurm_std
     mem_mb: 4000
@@ -166,17 +194,18 @@ set-resources:
     mem_mb: 240000
     runtime: 60
 
+  # MAG workflow
   megahit_assembly:
     <<: *slurm_std
     mem_mb: 400000
     runtime: 3000
-    slurm_flags: "--exclusive"
+    slurm_extra: "--exclusive"
 
   index_assembly:
     <<: *slurm_std
     mem_mb: 4000
-    runtime: 30 
-  
+    runtime: 30
+
   map_reads_to_assembly:
     <<: *slurm_std
     mem_mb: 32000
@@ -186,7 +215,7 @@ set-resources:
     <<: *slurm_std
     mem_mb: 4000
     runtime: 30
-  
+
   metabat2_binning:
     <<: *slurm_std
     mem_mb: 128000
@@ -197,16 +226,17 @@ set-resources:
     mem_mb: 120000
     runtime: 240
 
+  # dbCAN workflow
   pyrodigal:
     <<: *slurm_std
     mem_mb: 32000
     runtime: 240
-  
+
   cazyme_annotation:
     <<: *slurm_std
     mem_mb: 42000
     runtime: 480
-  
+
   cgc_calling:
     <<: *slurm_std
     mem_mb: 42000
@@ -216,7 +246,7 @@ set-resources:
     <<: *slurm_std
     mem_mb: 42000
     runtime: 480
-  
+
   bwa_mem_mapping:
     <<: *slurm_std
     mem_mb: 48000
@@ -226,11 +256,6 @@ set-resources:
     <<: *slurm_std
     mem_mb: 24000
     runtime: 360
-
-  get_abundances_rpm:
-    <<: *slurm_std
-    mem_mb: 8000
-    runtime: 120
 
   get_abundances_rpm:
     <<: *slurm_std
