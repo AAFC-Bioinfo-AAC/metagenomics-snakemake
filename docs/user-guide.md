@@ -814,110 +814,174 @@ The assembly checkpoint thresholds determine whether a sample proceeds to genome
   - The processing log is written to `individual_assemblies/sample_checkm2.log` beneath the configured log directory.
 
 ---
----
-
 #### Module `db_can.smk`
 
-- For this module, users are encouraged to remove undesired steps from their workflow by editing `workflow/rules/db_can.smk` and the rule all section in the `workflow/Snakefile`. If steps are not removed, all listed outputs will be produced.
+This module uses [run_dbCAN](https://run-dbcan.readthedocs.io/en/latest/) to annotate carbohydrate-active enzymes (CAZymes), identify CAZyme gene clusters (CGCs), predict CGC substrates and calculate per-sample abundances. The module operates on assemblies generated separately for each sample by `mag.smk`.
 
-**Rule: `pyrodigal` *Predict protein coding genes***
+A checkpoint restricts the analysis to samples with a non-empty assembly. The dbCAN reference database is not distributed with the pipeline. Its absolute path must be provided using `dbcan_DB_path` in `config/config.yaml`. 
 
-- **Purpose:** Predict protein coding genes to be used by downstream rules for annotating CAZymes, calling CAZyme gene clusters, and CAZyme substrate prediction.
+**Selecting dbCAN analyses**
+
+The three run_dbCAN rules perform overlapping analyses:
+
+- `cazyme_annotation` performs CAZyme annotation.
+- `cgc_calling` performs CAZyme annotation and CGC identification.
+- `substrate_prediction` performs CAZyme annotation, CGC identification and substrate prediction.
+
+The default `rule all` requests outputs from all three rules, causing the overlapping analyses to be run separately. To omit unnecessary analyses, remove their output targets from `rule all` in `workflow/Snakefile`. The rule definitions normally do not need to be removed from `workflow/rules/db_can.smk`.
+
+The most comprehensive output required should generally be selected:
+
+- For CAZyme annotation only, request `sample/sample_cazyme/overview.tsv`.
+- For CAZyme annotation and CGC identification, request `sample/sample_pul/cgc.gff`.
+- For CAZyme annotation, CGC identification and substrate prediction, request `sample/sample_dbcan/substrate_prediction.tsv`.
+- For the complete analysis including RPM abundance calculations, request `sample/sample_abund/fam_abund.out`. Its dependencies automatically trigger substrate prediction, read mapping, gene-depth calculation and the other abundance outputs.
+
+**Default analysis settings**
+
+| Configuration setting | Default | Description |
+|---|---:|---|
+| `dbcan_depth: overlap_base_ratio` | `0.2` | Minimum required overlap proportion between an aligned read and a predicted gene. |
+| `dbcan_depth: mapping_quality` | `30` | Minimum mapping-quality score used for coverage calculation. |
+| `dbcan_depth: identity` | `0.98` | Minimum alignment identity used for coverage calculation. |
+
+*Pyrodigal* is run in metagenomic mode using `-p meta`. The run_dbCAN analyses use protein-input mode and abundance results are normalized as reads per million (RPM). Other settings not specified by the workflow retain their software defaults.
+
+**Checkpoint: `nonempty_assemblies` — Select assemblies for dbCAN analysis**
+
+- **Purpose:** Creates a list of samples with non-empty assemblies for downstream dbCAN analysis.
 - **Inputs:**
-  - Assembly for each sample: `sample_assembly.contigs.fa`
+  - Per-sample assemblies: `sample_assembly.contigs.fa`
 - **Outputs:**
-  - Genes written to GFF format: `sample_genes.gff`
-  - Protein translations in FASTA format: `sample_proteins.faa`
-  - Gene sequences in FASTA format: `sample.cds`
-
-**Rule: `bwa_mem_mapping` *Map reads to assembly***
-
-- **Purpose:** Map the sample reads to the sample assembly.
-- **Inputs:**
-  - Assembly for each sample: `sample_assembly.contigs.fa`
-  - Clean read pairs: `sample_trimmed_clean_R1.fastq.gz`/`sample_trimmed_clean_R2.fastq.gz`
-- **Outputs:**
-  - Binary alignment map: `sample.bam`
-  - Temporary marked index map: temp(`sample.bam.bi`)
-
-**Rule: `dbcan_depth` *Sequnce depth***
-
-- **Purpose:** Determine sequncing depth of predicted CAZyme genes.
-- **Inputs:**
-  - Genes written to GFF format: `sample_genes.gff`
-  - Binary alignment map: `sample.bam`
-  - Index map: temp(`sample.bam.bi`)
-- **Outputs:**
-  - Depth file: `sample.depth.txt`
-
-**Rule: `cazyme_annotation` *Identify and classify CAZymes***
-
-- **Purpose:** Identify and classify carbohydrate-active enzymes (CAZymes) in sample sequences
-- **Inputs:**
-  - Protein translations in FASTA format: `sample_proteins.faa`
-  - Path to the dbCAN database
-- **Outputs:**
-  - Directory named `sample/sample_cazyme` that contains:
-    - Protein FASTA file used as input for all dbCAN searches: `uniInput.faa`
-    - Results from dbCAN HMMER search: `dbCAN_hmm_results.tsv`
-    - Raw output from the dbCAN subfamily HMM search: `dbCANsub_hmm_raw.tsv`
-    - Filtered and processed dbCAN subfamily HMM results: `dbCANsub_hmm_results.tsv`
-    - DIAMOND BLASTP search results against the CAZy protein database: `diamond.out`
-    - Integrated summary file combining results from the dbCAN HMMER search, dbCAN subfamily HMM search, and the DIAMOND BLASTP search: `overview.tsv`
-
-**Rule: `cgc_calling` *CAZymes gene clusters analysis***
-
-- **Purpose:** CAZymes gene clusters calling, GFF processing, and CAZyme annotation in one step.
-- **Inputs:**
-  - Genes written to GFF format: `sample_genes.gff`
-  - Protein translations in FASTA format: `sample_proteins.faa`
-  - Path to the dbCAN database
-- **Outputs:**
-  - Directory named `sample/sample_pul` that contains:
-    - CAzFunctional gene annotation outputs used for CGC definitionZyme annotation outputs (same as cazyme_annotation rule above): `uniInput.faa`, `dbCAN_hmm_results.tsv`, `dbCANsub_hmm_raw.tsv`, `dbCANsub_hmm_results.tsv`, `diamond.out`, and `overview.tsv`
-    - Gene cluster prdiction outputs:`cgc.gff`, `cgc_standard_out.tsv`, `cgc_standard_out_summary.tsv`, and `total_cgc_info.tsv`
-    - These files identify non-CAZyme genes required for CGC definition:`diamond.out.peptidase`, `diamond.out.sulfatase`,`diamond.out.tc`,`diamond.out.tf`, and `STP_hmm_results.tsv`
+  - List of samples with non-empty assemblies: `nonempty_assemblies.txt`
 - **Notes:**
+  - An assembly is retained when the file exists and has a size greater than zero bytes.
+  - This checkpoint does not apply the `assembly_filter` thresholds used to select assemblies for MAG binning.
+  - Only samples listed in `nonempty_assemblies.txt` are included in the dbCAN targets generated by `rule all`.
 
-  - The output directory `sample/sample_pul` should be renamed to `sample/sample_cgc`. The current directory implies that Polysaccharide Utilization Loci (PULs) are identified. This does not happen in this step.
+**Rule: `pyrodigal` — Predict protein-coding genes**
 
-**Rule: `substrate_prediction` *CAZyme Gene Cluster analysis and substrate prediction***
-
-- **Purpose:** Perform CAZyme annotation, CAZyme Gene Cluster (CGC) prediction, GFF processing, and substrate prediction in a single workflow.
+- **Purpose:** Uses *Pyrodigal* in metagenomic mode to predict protein-coding genes from each non-empty assembly. The predicted genes and proteins are used by the downstream CAZyme, CGC and substrate analyses.
 - **Inputs:**
-  - Genes written to GFF format: `sample_genes.gff`
+  - Per-sample assembly: `sample_assembly.contigs.fa`
+- **Outputs:**
+  - Gene annotations in GFF format: `sample_genes.gff`
   - Protein translations in FASTA format: `sample_proteins.faa`
-  - Path to the dbCAN database
-- **Outputs:**
-  - Directory named `sample/sample_dbcan` that contains:
-    - CAZyme annotation outputs: `uniInput.faa`, `dbCAN_hmm_results.tsv`, `dbCANsub_hmm_raw.tsv`, `dbCANsub_hmm_results.tsv`, `diamond.out`, and `overview.tsv`
-    - Gene cluster prdiction outputs:`cgc.gff`, `CGC.faa`,`cgc_standard_out.tsv`, `cgc_standard_out_summary.tsv`, and `total_cgc_info.tsv`
-    - Functional gene annotation outputs used for CGC definition:`diamond.out.peptidase`, `diamond.out.sulfatase`,`diamond.out.tc`,`diamond.out.tf`, and `STP_hmm_results.tsv`
-  - Substrate prediction–specific outputs:
-    - Directory `synteny_pdf` containing synteny plots comparing predicted CGCs to Polysaccharide Utilization Loci (PULs)
-    - BLAST/DIAMOND results comparing predicted CGCs to experimentally characterized PULs in the dbCAN-PUL database: `PUL_blast.out`
-
-**Rule: `get_abundances_rpm` *Normalized abundances of CAZyme families, subfamilies, CGCs, and substrates***
-
-- **Purpose:**Calculate normalized abundances in Reads Per Million (RPM).
-- **Inputs:**
-  - Integrated summary file combining results from the dbCAN HMMER search, dbCAN subfamily HMM search, and the DIAMOND BLASTP search: `overview.tsv`
-  - Depth file: `sample.depth.txt`
-- **Outputs:**
-  - Normalized abundances of CAZyme families:`fam_abund.out`
-  - Normalized abundances of CAZyme subfamilies:`subfam_abund.out`
-  - Normalized abundances of EC numbers associated with CAZyme annotations:`EC_abund.out`
-  - Normalized abundances of predicted substrates:`fam_substrate_abund.out`
-  - Normalized abundances of CAZyme Gene Clusters (CGCs) based on the cumulative abundance of genes within each cluster:`CGC_abund.out`
-  - Predicted CGC substrate abundances inferred from homology to experimentally characterized PULs in the dbCAN-PUL database:`CGC_substrate_PUL_homology.out`
-  - Predicted CGC substrate abundances inferred:`CGC_substrate_majority_voting.out`
-
+  - Coding sequences in FASTA format: `sample.cds`
 - **Notes:**
+  - Gene prediction is performed using the metagenomic mode specified by `-p meta`.
+  - The processing log is written to `dbcan/prodigal/sample.log` beneath the configured log directory.
 
-  - The `overview.tsv` file comes from the `substrate_prediction` rule. In the `get_abundances_rpm` rule. If the `substrate_prediction` rule is removed for the workflow point the input to be `f"{SAMPLE_DBCAN}/{{sample}}/{{sample}}_pul/overview.tsv"` or `f"{SAMPLE_DBCAN}/{{sample}}/{{sample}}_cazyme/overview.tsv"`.
+**Rule: `cazyme_annotation` — Identify and classify CAZymes**
+
+- **Purpose:** Runs `run_dbcan CAZyme_annotation` on the predicted protein sequences to identify and classify CAZymes.
+- **Inputs:**
+  - Protein translations: `sample_proteins.faa`
+  - dbCAN database specified by `dbcan_DB_path`
+- **Outputs:**
+  - CAZyme annotation directory: `sample/sample_cazyme/`
+  - Integrated annotation summary: `sample/sample_cazyme/overview.tsv`
+- **Notes:**
+  - The output directory contains the principal run_dbCAN CAZyme annotation files, including:
+    - Standardized protein input: `uniInput.faa`
+    - dbCAN-family HMM results: `dbCAN_hmm_results.tsv`
+    - Raw dbCAN-subfamily HMM results: `dbCANsub_hmm_raw.tsv`
+    - Filtered dbCAN-subfamily HMM results: `dbCANsub_hmm_results.tsv`
+    - DIAMOND results against the CAZy protein database: `diamond.out`
+    - Integrated annotation summary: `overview.tsv`
+  - This analysis is also performed as part of `cgc_calling` and `substrate_prediction`.
+  - The processing log is written to `dbcan/cazyme_annotation/sample.log` beneath the configured log directory.
+
+**Rule: `cgc_calling` — Identify CAZyme gene clusters**
+
+- **Purpose:** Runs `run_dbcan easy_CGC` to perform CAZyme annotation, process the gene annotations and identify putative CGCs.
+- **Inputs:**
+  - Gene annotations: `sample_genes.gff`
+  - Protein translations: `sample_proteins.faa`
+  - dbCAN database specified by `dbcan_DB_path`
+- **Outputs:**
+  - CGC-analysis directory: `sample/sample_pul/`
+  - CGC annotations in GFF format: `sample/sample_pul/cgc.gff`
+- **Notes:**
+  - The output directory contains CAZyme annotation files such as `uniInput.faa`, `dbCAN_hmm_results.tsv`, `dbCANsub_hmm_raw.tsv`, `dbCANsub_hmm_results.tsv`, `diamond.out` and `overview.tsv`.
+  - Principal CGC outputs include `cgc.gff`, `cgc_standard_out.tsv`, `cgc_standard_out_summary.tsv` and `total_cgc_info.tsv`.
+  - Additional files annotate non-CAZyme genes that may contribute to CGC definition, including `diamond.out.peptidase`, `diamond.out.sulfatase`, `diamond.out.tc`, `diamond.out.tf` and `STP_hmm_results.tsv`.
+  - The directory suffix `_pul` is potentially misleading because this rule identifies CGCs rather than experimentally characterized polysaccharide utilization loci. Renaming it to `_cgc` would require coordinated changes to the rule outputs, parameters and targets in `workflow/Snakefile`.
+  - This analysis does not perform CGC substrate prediction.
+  - The processing log is written to `dbcan/cgc_calling/sample.log` beneath the configured log directory.
+
+**Rule: `substrate_prediction` — Identify CGCs and predict substrates**
+
+- **Purpose:** Runs `run_dbcan easy_substrate` to perform CAZyme annotation, identify CGCs and predict their likely carbohydrate substrates.
+- **Inputs:**
+  - Gene annotations: `sample_genes.gff`
+  - Protein translations: `sample_proteins.faa`
+  - dbCAN database specified by `dbcan_DB_path`
+- **Outputs:**
+  - Complete dbCAN-analysis directory: `sample/sample_dbcan/`
+  - Integrated CAZyme annotation summary: `sample/sample_dbcan/overview.tsv`
+  - CGC substrate predictions: `sample/sample_dbcan/substrate_prediction.tsv`
+- **Notes:**
+  - The directory contains the CAZyme annotation and CGC-identification outputs described for the preceding rules.
+  - Principal CGC files include `cgc.gff`, `CGC.faa`, `cgc_standard_out.tsv`, `cgc_standard_out_summary.tsv` and `total_cgc_info.tsv`.
+  - `substrate_prediction.tsv` contains the combined substrate predictions for the identified CGCs.
+  - `PUL_blast.out` contains DIAMOND results comparing CGCs with experimentally characterized PULs in the dbCAN-PUL database.
+  - The `synteny_pdf/` directory contains synteny plots for CGC–PUL matches when suitable matches are identified.
+  - This rule is the upstream annotation rule required by `get_abundances_rpm` as currently written.
+  - The processing log is written to `dbcan/substrate_prediction/sample.log` beneath the configured log directory.
+
+**Rule: `bwa_mem_mapping` — Map reads to the assembly**
+
+- **Purpose:** Maps the host-depleted paired reads from each sample back to the corresponding assembly using *BWA-MEM*. *SAMtools* then creates a coordinate-sorted BAM file and its index.
+- **Inputs:**
+  - Per-sample assembly: `sample_assembly.contigs.fa`
+  - Host-depleted R1 reads: `sample_trimmed_clean_R1.fastq.gz`
+  - Host-depleted R2 reads: `sample_trimmed_clean_R2.fastq.gz`
+- **Outputs:**
+  - Coordinate-sorted alignment file: `mapping/sample.bam`
+  - Temporary BAM index: `mapping/sample.bam.bai`
+  - Temporary BWA assembly-index files: `.amb`, `.ann`, `.bwt`, `.pac` and `.sa`
+- **Notes:**
+  - The BAM file is retained for coverage calculation.
+  - The BAM index and BWA index files are marked with `temp()` and may be removed by Snakemake after their downstream dependencies have completed.
+  - The processing log is written to `dbcan/bwa_mem_mapping/sample.log` beneath the configured log directory.
+
+**Rule: `dbcan_depth` — Calculate gene-level sequencing depth**
+
+- **Purpose:** Uses `dbcan_utils cal_coverage` to calculate sequencing depth for the genes predicted by *Pyrodigal*. These depth values are used to estimate CAZyme and CGC abundances.
+- **Inputs:**
+  - Gene annotations: `sample_genes.gff`
+  - Coordinate-sorted alignment file: `mapping/sample.bam`
+  - BAM index: `mapping/sample.bam.bai`
+- **Outputs:**
+  - Gene-depth table: `sample/sample_abund/sample.depth.txt`
+- **Notes:**
+  - Alignments are filtered using the configured overlap, mapping-quality and identity thresholds.
+  - The default values are `0.2`, `30` and `0.98`, respectively.
+  - The processing log is written to `dbcan/dbcan_depth/sample.log` beneath the configured log directory.
+
+**Rule: `get_abundances_rpm` — Calculate normalized CAZyme and CGC abundances**
+
+- **Purpose:** Uses the annotation results and gene-depth table to calculate CAZyme, CGC and substrate abundances as reads per million.
+- **Inputs:**
+  - Integrated annotation summary from `substrate_prediction`: `sample/sample_dbcan/overview.tsv`
+  - Gene-depth table: `sample/sample_abund/sample.depth.txt`
+- **Outputs:**
+  - CAZyme-family abundances: `fam_abund.out`
+  - CAZyme-subfamily abundances: `subfam_abund.out`
+  - Enzyme Commission number abundances: `EC_abund.out`
+  - CAZyme-associated substrate abundances: `fam_substrate_abund.out`
+  - CGC abundances: `CGC_abund.out`
+  - CGC substrate abundances inferred by PUL homology: `CGC_substrate_PUL_homology.out`
+  - CGC substrate abundances inferred using majority voting: `CGC_substrate_majority_voting.out`
+- **Notes:**
+  - All abundance files are written beneath `sample/sample_abund/`.
+  - If `overview.tsv` is empty or contains only its header, the rule creates empty abundance files so the workflow can continue. It also creates `did_not_run_get_abundances_rpm.txt` to document why abundance calculations were skipped.
+  - As written, this rule requires the complete output directory produced by `substrate_prediction`.
+  - Changing only the `overview` input to the output of `cazyme_annotation` or `cgc_calling` is insufficient. The `dbcan_dir` parameter, commands and declared outputs would also need to be changed because CAZyme-only and CGC-only analyses do not produce all inputs required for substrate-level abundance calculations.
+  - The processing log is written to `dbcan/get_abundances_rpm/sample.log` beneath the configured log directory.
 
 ---
-
 ## Data
 
 The raw input data must be in the form of paired-end FASTQ files generated from metagenomics experiments.
