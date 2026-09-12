@@ -84,10 +84,6 @@ bowtie2_align:
 extract_unmapped_fastq:
   threads: 8
 ## amr_short_reads.smk
-rgi_reload_database:
-  threads: 1
-symlink_rgi_card:
-  threads: 1
 rgi_bwt:
   threads: 8
 ## taxonomy.smk
