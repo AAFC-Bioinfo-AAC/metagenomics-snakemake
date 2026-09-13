@@ -115,7 +115,7 @@ rule extract_unmapped_fastq:
         r2 = protected(f"{HOST_DEP_DIR}/{{sample}}_trimmed_clean_R2.fastq.gz")
     log:
         f"{LOG_DIR}/bedtools/{{sample}}.log"
-    threads: config.get("extract_unmapped_fastq", {}).get("threads", 4)
+    threads: config.get("extract_unmapped_fastq", {}).get("threads", 5)
     conda:
         "../envs/bedtools.yaml"
     shell:
@@ -124,15 +124,14 @@ rule extract_unmapped_fastq:
 
         mkdir -p "$(dirname {output.r1:q})" "$(dirname {log:q})"
 
-        if (( {threads} < 4 )); then
-            echo "ERROR: extract_unmapped_fastq requires at least 4 threads; received {threads}." >> {log:q}
+        if (( {threads} < 5 )); then
+            echo "ERROR: extract_unmapped_fastq requires at least 5 threads; received {threads}." >> {log:q}
             exit 1
         fi
 
-        # This pipeline has four concurrent components at minimum:
-        # samtools view, samtools sort, bedtools bamtofastq, and pigz.
-        # Give any CPUs beyond those four to samtools sort.
-        sort_extra=$(( {threads} - 4 ))
+        # samtools view, samtools sort, bedtools and two compressors
+        # run concurrently. Reserve one CPU for each.
+        sort_extra=$(( {threads} - 5 ))
         if (( sort_extra > 0 )); then
             sort_threads="-@ $sort_extra"
         else
@@ -144,10 +143,35 @@ rule extract_unmapped_fastq:
         mkdir -p "$tmpbase"
         tmpjob=$(mktemp -d "${{tmpbase%/}}/bam2fq_${{job_id}}_XXXXXX")
 
+        pid1=""
+        pid2=""
+
         cleanup() {{
+            for pid in "$pid1" "$pid2"; do
+                if [[ -n "$pid" ]]; then
+                    kill "$pid" 2>/dev/null || true
+                    wait "$pid" 2>/dev/null || true
+                fi
+            done
             rm -rf -- "$tmpjob"
         }}
         trap cleanup EXIT
+
+        # Explicit child PIDs let us detect a failed compressor and wait
+        # for both complete gzip streams before publishing the outputs.
+        mkfifo "$tmpjob/r1.fifo" "$tmpjob/r2.fifo"
+
+        pigz -p 1 --fast \
+            < "$tmpjob/r1.fifo" \
+            > "$tmpjob/r1.fastq.gz" \
+            2>> {log:q} &
+        pid1=$!
+
+        pigz -p 1 --fast \
+            < "$tmpjob/r2.fifo" \
+            > "$tmpjob/r2.fastq.gz" \
+            2>> {log:q} &
+        pid2=$!
 
         # -f 12 retains read pairs for which both the read and its mate are unmapped.
         # -F 256 excludes secondary alignments. The name sort is required by
@@ -157,6 +181,15 @@ rule extract_unmapped_fastq:
             -T "$tmpjob/{wildcards.sample}_sort_tmp" \
             -O BAM - 2>> {log:q} \
         | bedtools bamtofastq -i - 2>> {log:q} \
-            -fq >(pigz -p 1 --fast > {output.r1:q}) \
-            -fq2 >(pigz -p 1 --fast > {output.r2:q})
+            -fq "$tmpjob/r1.fifo" \
+            -fq2 "$tmpjob/r2.fifo"
+
+        wait "$pid1"
+        pid1=""
+
+        wait "$pid2"
+        pid2=""
+
+        mv -- "$tmpjob/r1.fastq.gz" {output.r1:q}
+        mv -- "$tmpjob/r2.fastq.gz" {output.r2:q}
         """
