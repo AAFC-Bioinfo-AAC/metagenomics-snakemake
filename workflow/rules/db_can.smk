@@ -288,13 +288,22 @@ rule bwa_mem_mapping:
         mkdir -p "$(dirname {log:q})" "$(dirname {output.bam:q})"
         : > {log:q}
 
+        if (( {threads} < 2 )); then
+            echo "ERROR: bwa_mem_mapping requires at least 2 threads; received {threads}." >> {log:q}
+            exit 1
+        fi
+
+        # Reserve approximately one quarter of the CPU budget for SAMtools.
         sort_threads=$(( {threads} / 4 ))
         if (( sort_threads < 1 )); then
             sort_threads=1
         fi
         bwa_threads=$(( {threads} - sort_threads ))
 
-        echo "[$(date)] Total threads: {threads}; BWA: $bwa_threads; SAMtools: $sort_threads" \
+        # Reserve one CPU within the SAMtools budget for its main thread.
+        sort_extra=$(( sort_threads - 1 ))
+
+        echo "[$(date)] Total threads: {threads}; BWA: $bwa_threads; SAMtools budget: $sort_threads; SAMtools workers: $sort_extra" \
             >> {log:q}
 
         bwa index {input.assembly:q} >> {log:q} 2>&1
@@ -306,7 +315,7 @@ rule bwa_mem_mapping:
             {input.R2:q} \
             2>> {log:q} \
         | samtools sort \
-            -@ "$sort_threads" \
+            -@ "$sort_extra" \
             -o {output.bam:q} \
             - \
             >> {log:q} 2>&1
