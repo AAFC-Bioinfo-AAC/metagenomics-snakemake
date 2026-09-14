@@ -984,393 +984,954 @@ The most comprehensive output required should generally be selected:
 ---
 ## Data
 
-The raw input data must be in the form of paired-end FASTQ files generated from metagenomics experiments.
+The workflow requires paired-end metagenomic sequencing reads in FASTQ format.
 
-- Each sample should include both forward (R1) and reverse (R2) read files.
-- The path to the `PROJECT_ROOT` needs to be specified in the `.evn` file
-- Raw fastq file directory must be specified in the `config.yaml` file.
+- Each sample must have one forward-read file (R1) and one reverse-read file (R2).
+- `PROJECT_ROOT` must be defined in the `.env` file.
+- The raw-read directory must be specified using `reads_dir` in `config/config.yaml`.
+- Each sample and its corresponding FASTQ files must be listed in the sample sheet.
+- FASTQ paths in the sample sheet may be absolute or relative to `reads_dir`.
+- Sample names must be unique and cannot contain `/` or `\`.
 
-**Example:**
+The sample-sheet location is specified using the `samplesheet` setting in `config/config.yaml`. If this setting contains a relative path, it is resolved relative to the `config` directory.
 
-- **Dataset 1 Filename**: Sequencing reads (FASTQ) from beef cattle rumen samples are provided for three samples: `LLC42Nov10C`, `LLC42Sep06CR`, and `LLC82Sep06GR`.
+**Example `samplesheet.csv`:**
+
+```csv
+sample,fastq_1,fastq_2
+LLC42Nov10C,LLC42Nov10C_R1.fastq.gz,LLC42Nov10C_R2.fastq.gz
+LLC42Sep06CR,LLC42Sep06CR_R1.fastq.gz,LLC42Sep06CR_R2.fastq.gz
+LLC82Sep06GR,LLC82Sep06GR_R1.fastq.gz,LLC82Sep06GR_R2.fastq.gz
+```
+
+See [Sample list](#33-sample-list) for complete sample-sheet instructions.
 
 ---
 
 ## Parameters
 
-The `config/config.yaml` file contains the editable pipeline parameters, thread allocation for rules with more than one core, and the relative file paths for input and output. The prefix of the absolute file path must go in `.env`. Most tools in the pipeline have default parameters. The tools with parameters different from default or that can be edited in the `config/config.yaml` file are listed below.
+The `config/config.yaml` file defines the input and output paths, database locations, thread allocations, filtering criteria, and tool-specific parameters used by the workflow.
 
+Project-relative paths are resolved against `PROJECT_ROOT`, which is defined in the `.env` file. Absolute paths can also be used. Shared database paths should normally be absolute so they are accessible from all compute nodes.
 
-| Parameter                                                          | Value                                                                                                                                                                                                                                                                                 |
-| -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| *samplesheet.csv*                                                  | *The samplesheet is described here: [Sample list](#33-sample-list)*                                                                                                                                                                                                                   |
-| *fastp: cut_tail*                                                  | *If true, trim low quality bases from the 3′ end until a base meets or exceeds the cut_mean_quality threshold. If false,disabled.*                                                                                                                                                   |
-| *fastp: cut_front*                                                 | *If true, trim low quality bases from the 5′ end until a base meets or exceeds the cut_mean_quality threshold. If false,disabled.*                                                                                                                                                   |
-| *fastp: cut_mean_quality*                                          | *A positive integer specifying the minimum average quality score threshold for sliding window trimming.*                                                                                                                                                                              |
-| *fastp: cut_window_size*                                           | *A positive integer specifying the sliding window size in bp when using cut_mean_quality.*                                                                                                                                                                                            |
-| *fastp: qualified_quality_phred*                                   | *A positive integer specifying the minimum Phred score that a base needs to be considered qualified*.                                                                                                                                                                                 |
-| *fastp: detect_adapter_for_pe*                                     | *If true, auto adapter detection. If false,disabled.*                                                                                                                                                                                                                                 |
-| *fastp: length_required*                                           | *Reads shorter then this positive integer will be discarded.*                                                                                                                                                                                                                         |
-| *kraken2: conf_threshold*                                          | *Interval between 0 and 1. Higher values require more of a read’s k-mers to match the same taxon before it is classified, increasing precision but reducing sensitivity.*                                                                                                            |
-| *bracken: readlen*                                                 | *Specify the read length (in base pairs) of your sequencing data.*                                                                                                                                                                                                                    |
-| *bracken: threshold_species,threshold_genus, and threshold_phylum* | *specifies the minimum number of reads required for a classification at the specified rank. Any classifications with less than the specified threshold will not receive additional reads from higher taxonomy levels when distributing reads for abundance estimation. Default is 10* |
-| *bracken: threshold_domain*                                        | *specifies the minimum number of reads required for a classification. Set to 0 in this workflow to capture all the reads*                                                                                                                                                             |
-| *kegg_diamond: sensitivity*                                        | *Sensitivity modes are described in the [DIAMOND github wiki](https://github.com/bbuchfink/diamond/wiki/3.-Command-line-options).*                                                                                                                                                    |
-| *kegg_diamond: max_target_num*                                     | *--max-target-seqs/-k is the max number of target sequences per alignment to report. Set at 1 in this pipeline to only keep the best hit. Default is 25.*                                                                                                                             |
-| *kegg_diamond: out_file_format*                                    | *--outfmt is the output file format. Set as 6 qseqid sseqid slen pident length mismatch gapopen qstart qend sstart send evalue bitscore in this pipeline.*                                                                                                                            |
-| *megahit_assembly: min_contig_length*                              | *--min-contig-len is the minimum length contigs must be to be outputted. Set at 1000 bp in this pipeline. Default is 200 bp.*                                                                                                                                                         |
-| *megahit_assembly: out_prefix*                                     | *--out-prefix is the prefix of the outfile in the scratch directory. When it is moved from the scratch to working directory it will be renamed to `sample__assembly.contigs.fa`. In the pipeline this is set to final.*                                                               |
-| *map_reads_to_assembly: max_mem_per_thread*                        | *Maximum memory per node that `Samtools` can use during sorting. In this pipeline it is set at 4G*                                                                                                                                                                                    |
-| *metabat2_binning: min_contig_length*                              | *The minimum length a contig must be to be considered for binning. Set to 2000 bp in this pipeline. Default is 2500 bp.*                                                                                                                                                              |
-| *checkm2: memory_usage*                                            | *The lowmem flag reduces the RAM usage of the DIAMOND annotation step by half.*                                                                                                                                                                                                       |
+Memory, runtime, partition, account, and other SLURM resource settings are configured separately in `profiles/slurm/config.yaml`. Thread counts are specified within the corresponding rule blocks in `config/config.yaml` and are not repeated in the table below.
 
-## Filters and exclusion lists
+| Parameter | Description |
+| --- | --- |
+| `samplesheet` | Path to the sample sheet. A relative path is resolved against the `config` directory. |
+| `fastp: cut_tail` | Enables sliding-window quality trimming from the 3′ end when set to `true`. |
+| `fastp: cut_front` | Enables sliding-window quality trimming from the 5′ end when set to `true`. |
+| `fastp: cut_mean_quality` | Minimum mean Phred quality required within a trimming window. The configured value is `20`. |
+| `fastp: cut_window_size` | Sliding-window size in base pairs. The configured value is `4`. |
+| `fastp: qualified_quality_phred` | Minimum Phred score for a base to be considered qualified. The configured value is `15`. |
+| `fastp: detect_adapter_for_pe` | Enables automatic paired-end adapter detection when set to `true`. |
+| `fastp: length_required` | Discards reads shorter than this length after trimming. The configured value is `100` bp. |
+| `kraken2: conf_threshold` | Kraken2 confidence threshold between `0` and `1`. Higher values generally increase classification precision but reduce sensitivity. The configured value is `0.5`. |
+| `bracken: readlen` | Read length used when selecting the Bracken k-mer distribution file. It must match a distribution file available in the Kraken2/Bracken database. |
+| `bracken: threshold_species` | Minimum read-count threshold used for Bracken abundance estimation at the species level. The configured value is `10`. |
+| `bracken: threshold_genus` | Minimum read-count threshold used for Bracken abundance estimation at the genus level. The configured value is `10`. |
+| `bracken: threshold_phylum` | Minimum read-count threshold used for Bracken abundance estimation at the phylum level. The configured value is `10`. |
+| `bracken: threshold_domain` | Minimum read-count threshold used at the domain level. The configured value is `0`, allowing all domain-level classifications to be reported. |
+| `kegg_diamond: sensitivity` | DIAMOND sensitivity mode. Supported options include `--faster`, `--fast`, `--mid-sensitive`, `--sensitive`, `--more-sensitive`, `--very-sensitive`, and `--ultra-sensitive`. An empty value uses DIAMOND’s default mode. See the [DIAMOND command-line documentation](https://github.com/bbuchfink/diamond/wiki/3.-Command-line-options). |
+| `kegg_diamond: max-target-seqs` | Maximum number of target sequences reported per query. The configured value is `1`, retaining only the best reported target. |
+| `kegg_diamond: outfmt` | DIAMOND output format and fields. The configured value is `6 qseqid sseqid slen pident length mismatch gapopen qstart qend sstart send evalue bitscore`. |
+| `megahit: min_contig_length` | Minimum contig length reported by MEGAHIT. The configured value is `1000` bp. |
+| `megahit: out_prefix` | Prefix used for MEGAHIT output inside its temporary run directory. The configured value is `final`. The retained assembly is renamed to `sample_assembly.contigs.fa`. |
+| `assembly_filter: min_len_for_stats` | Minimum contig length included when calculating checkpoint assembly statistics. The configured value is `2000` bp. |
+| `assembly_filter: min_total_bp` | Minimum combined length of qualifying contigs required for an assembly to proceed beyond the checkpoint. The configured value is `50000` bp. |
+| `assembly_filter: min_contigs` | Minimum number of qualifying contigs required for an assembly to proceed beyond the checkpoint. The configured value is `100`. |
+| `assembly_filter: min_fasta_bytes` | Minimum assembly FASTA file size required for an assembly to proceed beyond the checkpoint. The configured value is `1` byte. |
+| `map_reads: max_mem_per_thread` | Maximum memory available to each SAMtools sorting thread. The configured value is `4G`. Total sorting memory can be several times this value when multiple sorting threads are used. |
+| `metabat2: min_contig_length` | Minimum contig length considered by MetaBAT2 during binning. The configured value is `2500` bp. |
+| `checkm2: memory_usage` | Optional CheckM2 memory-control argument. The configured value is `--lowmem`, which reduces memory use during the DIAMOND annotation step. Use an empty string to run without this option. |
+| `dbcan_depth: overlap_base_ratio` | Minimum overlap ratio used when calculating dbCAN gene coverage. The configured value is `0.2`. |
+| `dbcan_depth: mapping_quality` | Minimum mapping-quality threshold used during dbCAN coverage calculations. The configured value is `30`. |
+| `dbcan_depth: identity` | Minimum alignment-identity threshold used during dbCAN coverage calculations. The configured value is `0.98`. |
 
+### Filters and exclusion lists
 
-| Module       | Rule                       | File                                            | Description                                                                                                                                                                                                                                                                                                         |
-| -------------- | ---------------------------- | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| taxonomy.smk | clean_host_bracken         | workflow/scripts/clean_bracken_batch.py         | This script removes the host taxa from Bracken output files. Taxonomy to be removed at each level is set in the`config/config.yaml`. Then the samples are re-normalized using the total remaining read counts. It is clearly indicated in the script where to edit the filter lists.                                |
-| kegg.smk     | filter_combined_kegg_table | resources/KEGG_BRITE_pathway_exclusion_file.txt | The exclusion list removes non-prokaryotic pathways from the analysis. This tab-delimited file contains two columns: "Pathway_ID" and "Pathway_Name". The "Pathway_ID" is a four-digit string (e.g., 00073, 05418) that corresponds to the[KEGG Pathway Map](https://www.genome.jp/kegg-bin/get_htext?br08901.keg). |
+The workflow uses configurable filters to remove specified taxa from Bracken results and selected pathways from the combined KEGG pathway table.
+
+| Module | Rule | Configuration or exclusion file | Description |
+| --- | --- | --- | --- |
+| `taxonomy.smk` | `clean_host_bracken` | `config/config.yaml` (`taxa_filters`) | Removes taxa whose names exactly match entries in the configured `domain`, `phylum`, `genus`, or `species` lists. Matching is case-sensitive. After filtering, the relative-abundance columns are recalculated from the remaining read counts for each sample. Taxa should be added to or removed from `taxa_filters` in `config/config.yaml`; the Python script does not need to be edited. The filtering is implemented by `workflow/scripts/clean_bracken_batch.py`. |
+| `kegg.smk` | `filter_combined_kegg_table` | `resources/KEGG_BRITE_pathway_exclusion_file.txt` | Removes pathways listed in the exclusion file from the combined KEGG pathway-abundance table. The exclusion file is tab-delimited and contains the columns `Pathway_ID` and `Pathway_Name`. `Pathway_ID` contains the five-digit KEGG pathway identifier, such as `00073` or `05418`, and is used for filtering. `Pathway_Name` provides a readable description of the excluded pathway. The exclusion list can be edited to suit the analysis. See the [KEGG pathway map hierarchy](https://www.genome.jp/kegg-bin/get_htext?br08901.keg) for pathway identifiers. |
 
 ---
 
 ## Usage
 
-### Pre-requisites
+### Prerequisites
 
 #### Software
 
-- Snakemake version 9.9.0
-- Snakemake-executor-plugin-slurm
-- MinPath version 1.6
-  - The MinPath software is available on the [MinPath github](https://github.com/mgtools/MinPath/blob/master/MinPath.py)
-  - The repository needs to be placed in the `project-snakemake/workflow/scripts` directory
-  - The file permissions for `project-snakemake/workflow/scripts/MinPath/glpk-4.6/examples/glpsol` need to be changed to executable:
+The workflow was developed and tested using the following primary workflow software:
+
+- Snakemake version 9.20.0
+- `snakemake-executor-plugin-slurm`
+- Conda or Mamba for creating and activating rule-specific environments
+- `python-dotenv` in the environment used to run Snakemake
+- Git
+
+Software used by individual rules is defined in the YAML files under `workflow/envs/`. When Snakemake is run with `--use-conda`, these rule-specific environments can be created automatically.
+
+##### MinPath
+
+The KEGG module requires MinPath version 1.6. MinPath is not distributed with this repository and must be installed separately.
+
+Clone the complete [MinPath repository](https://github.com/mgtools/MinPath) into `workflow/scripts/MinPath`:
 
 ```bash
-chmod +x absolute/path/code/metagenomics-snakemake/workflow/scripts/MinPath/glpk-4.6/examples/glpsol
+git clone https://github.com/mgtools/MinPath.git workflow/scripts/MinPath
 ```
+
+The following file must then exist:
+
+```text
+workflow/scripts/MinPath/MinPath.py
+```
+
+MinPath uses the bundled `glpsol` executable. Ensure that it is executable:
+
+```bash
+chmod +x workflow/scripts/MinPath/glpk-4.6/examples/glpsol
+```
+
+The complete MinPath directory is required because `MinPath.py` also uses files under its `data` directory.
+
+---
 
 #### Databases
 
-- **Bowtie2** Bowtie2 uses an index of reference sequences to align reads. This index must be created before running the pipeline. The index files (with the `.bt2` extension) must be located in the directory you specify in the `config/config.yaml` file. Make sure to update the prefix of these files in the `config.yaml` file.
+The workflow requires several prebuilt or downloaded databases. Database paths are specified in `config/config.yaml`, except for the CARD/RGI database, which may alternatively be specified using `RGI_CARD` in `.env`.
 
-  - In `resources/bowtie2_index` there is a `README.md` file that details where the index was copied from.
-- **Kraken2** Kraken2 requires a Kraken2-formatted GTDB database.
+Database locations should be accessible from every compute node used by the workflow.
 
-  - Kraken2-formatted GTDB release 226 built with the following scripts provided by Jean-Simon Brouard.
-  - The Bracken database was built specifying a read length of 150 bp and a kmer length of 35 (default for Kraken2)
-  - As per Gihawi et al, 2023, Kraken2 can assign host reads to bacteria in low microbial biomass samples if the host genomes are not included in the Kraken2 database. Therefore, this version of the GTDB release 226 was formatted for Kraken2 with the inclusion of four host genomes: Bos indicus (GCF_029378745.1), Bos taurus (GCF_002263795.3), Homo sapiens (GCF_000001405.40), and Sus scrofa (GCF_000003025.6).
+##### Bowtie2 host-removal index
 
-  > **See:** Gihawi A, Ge Y, Lu J, Puiu D, Xu A, Cooper CS, Brewer DS, Pertea M, Salzberg SL. Major data analysis errors invalidate cancer microbiome findings. mBio. 2023 Oct 31;14(5):e0160723. doi: 10.1128/mbio.01607-23. Epub 2023 Oct 9.
-  >
-- **RGI BWT/CARD**  RGI BWT requires the CARD (Comprehensive Antibiotic Resistance Database) database. The version tested in this pipeline was 4.0.1. The database can be located on a common drive or in your working directory.
-  Instructions for installing the CARD database are available on [CARD RGI github](https://github.com/arpcard/rgi/blob/master/docs/rgi_bwt.rst).
-  Steps copied from the RGI documentation:
+Bowtie2 uses an index of one or more host reference genomes to identify host-associated reads.
 
-  **Download CARD data:**
+Set `bowtie2_index` in `config/config.yaml` to the index prefix without a numbered suffix. For example:
 
-  ```bash
-  wget https://card.mcmaster.ca/latest/data
-  tar -xvf data ./card.json
+```yaml
+bowtie2_index: "/absolute/path/to/host_index/Cow_phiX"
+```
 
-  rgi load --card_json /path/to/card.json --local
+The workflow supports standard Bowtie2 indexes:
 
-  rgi card_annotation -i /path/to/card.json > card_annotation.log 2>&1
+```text
+Cow_phiX.1.bt2
+Cow_phiX.2.bt2
+Cow_phiX.3.bt2
+Cow_phiX.4.bt2
+Cow_phiX.rev.1.bt2
+Cow_phiX.rev.2.bt2
+```
 
-  rgi load -i /path/to/card.json --card_annotation card_database_v3.0.1.fasta --local
-  ```
+It also supports large Bowtie2 indexes using the corresponding `.bt2l` extension.
 
-  **Note:** the files after loading and annotating card must be called `card.json` and `card_reference.fasta`
-- **KEGG** The functional pathway analysis requires the [KEGG database](https://www.genome.jp/kegg/). Below are the files required for the analysis:
+All six files belonging to the selected index must be present. Additional information about the example host index used during workflow development is provided in `resources/bowtie2_index/README.md`.
 
-  - KEGG protein database: `prokaryotes.pep`
-  - KEGG Orthology assignments of genes `ko_genes.list`
-  - KEGG Orthology assignments of pathways `ko_pathway.list`
-  - KEGG BRITE hierarchy file `ko00001.keg`
+##### Kraken2 and Bracken database
 
-- **dbCAN** The database is required for the carbohydrate-active enzyme workflow. The database description and instructions on preparing the database can be found on [run_dbCAN](https://run-dbcan.readthedocs.io/en/latest/user_guide/prepare_the_database.html). These files must be in your dbCAN database directory:
+Set `gtbd_DB` in `config/config.yaml` to the absolute path of a Kraken2-formatted database that also contains a Bracken distribution file for the configured read length.
 
-  - CAZy.dmnd
-  - dbCAN.hmm
-  - dbCAN_sub.hmm
-  - TCDB.dmnd
-  - TF.hmm
-  - TF.dmnd
-  - STP.hmm
-  - sulfatlas_db.dmnd
-  - peptidase_db.dmnd
-  - fam-substrate-mapping.tsv
-  - PUL.dmnd
-  - dbCAN-PUL.xlsx
-  - dbCAN-PLU/PUL*
+The directory must contain at least:
 
+```text
+hash.k2d
+opts.k2d
+taxo.k2d
+database150mers.kmer_distrib
+```
+
+The name of the Bracken distribution file depends on `bracken: readlen`. For example, a read length of `150` requires `database150mers.kmer_distrib`.
+
+The workflow was tested using a Kraken2-formatted GTDB release 226 database with a Bracken distribution generated for 150-bp reads and the default Kraken2 k-mer length of 35.
+
+Host genomes were included in the database used during workflow development:
+
+- *Bos indicus*: `GCF_029378745.1`
+- *Bos taurus*: `GCF_002263795.3`
+- *Homo sapiens*: `GCF_000001405.40`
+- *Sus scrofa*: `GCF_000003025.6`
+
+Including relevant host genomes can reduce erroneous microbial classifications caused by host sequences remaining after host-read removal.
+
+> **Reference:** Gihawi A, Ge Y, Lu J, Puiu D, Xu A, Cooper CS, Brewer DS, Pertea M, Salzberg SL. Major data analysis errors invalidate cancer microbiome findings. *mBio*. 2023;14(5):e0160723. [https://doi.org/10.1128/mbio.01607-23](https://doi.org/10.1128/mbio.01607-23)
+
+##### CARD database for RGI BWT
+
+The AMR module requires a locally loaded and indexed [CARD](https://card.mcmaster.ca/) database compatible with RGI BWT. The workflow was tested using CARD version 4.0.1.
+
+Specify the CARD database directory using either:
+
+```text
+RGI_CARD=/absolute/path/to/localDB
+```
+
+in `.env`, or:
+
+```yaml
+card_latest: "/absolute/path/to/localDB"
+```
+
+in `config/config.yaml`.
+
+If both settings are present, `RGI_CARD` takes precedence.
+
+The configured directory must contain:
+
+```text
+card.json
+card_reference.fasta
+loaded_databases.json
+bwt/card_reference/kma.comp.b
+bwt/card_reference/kma.length.b
+bwt/card_reference/kma.name
+bwt/card_reference/kma.seq.b
+```
+
+Follow the official [RGI load instructions](https://github.com/arpcard/rgi/blob/master/docs/rgi_load.rst) and [RGI BWT instructions](https://github.com/arpcard/rgi/blob/master/docs/rgi_bwt.rst) to download CARD, generate the CARD reference FASTA, load the local database, and prepare the KMA index.
+
+The filename produced by `rgi card_annotation` contains the CARD version number. Use the filename generated by the installed CARD release rather than hard-coding an older filename such as `card_database_v3.0.1.fasta`.
+
+##### KEGG database
+
+The functional-pathway module requires data obtained from the [KEGG database](https://www.genome.jp/kegg/). KEGG data are not distributed with this workflow. Users are responsible for obtaining authorized access and complying with the applicable KEGG licensing conditions.
+
+The workflow requires:
+
+```text
+prokaryotes.pep.gz
+ko_genes.list
+ko_pathway.list
+ko00001.keg
+```
+
+Configure their locations in `config/config.yaml`:
+
+```yaml
+kegg_fasta: "/absolute/path/to/kegg/genes/fasta"
+ko_lists: "/absolute/path/to/kegg/genes/ko"
+kegg_brite_hierarchy: "/absolute/path/to/kegg/brite/ko"
+kegg_diamond_DB: "/absolute/path/to/kegg/diamond"
+```
+
+The expected organization is:
+
+```text
+kegg_fasta/
+└── prokaryotes.pep.gz
+
+ko_lists/
+├── ko_genes.list
+└── ko_pathway.list
+
+kegg_brite_hierarchy/
+└── ko00001.keg
+```
+
+The workflow creates the DIAMOND-formatted database `prokaryotes.pep.dmnd` under `kegg_diamond_DB` if it does not already exist.
+
+##### CheckM2 database
+
+The MAG module requires the CheckM2 DIAMOND database.
+
+Set `checkm2_DB` in `config/config.yaml` to the absolute path of the database file itself:
+
+```yaml
+checkm2_DB: "/absolute/path/to/CheckM2_database/uniref100.KO.1.dmnd"
+```
+
+This setting must point to `uniref100.KO.1.dmnd`, not only to the directory containing it. See the [CheckM2 repository](https://github.com/chklovski/CheckM2) for database download and installation instructions.
+
+##### dbCAN database
+
+The carbohydrate-active enzyme module requires a run_dbCAN database. Set `dbcan_DB_path` in `config/config.yaml` to the absolute path of the database directory:
+
+```yaml
+dbcan_DB_path: "/absolute/path/to/dbCAN"
+```
+
+Database preparation instructions are available in the [run_dbCAN documentation](https://run-dbcan.readthedocs.io/en/latest/user_guide/prepare_the_database.html).
+
+With a compatible run_dbCAN installation, the database can be downloaded automatically:
+
+```bash
+run_dbcan database --db_dir /absolute/path/to/dbCAN --aws_s3
+```
+
+The full workflow requires the CAZyme and CGC-related database files, including:
+
+```text
+CAZy.dmnd
+dbCAN.hmm
+dbCAN-sub.hmm
+fam-substrate-mapping.tsv
+TCDB.dmnd
+TF.hmm
+TF.dmnd
+STP.hmm
+sulfatlas_db.dmnd
+peptidase_db.dmnd
+PUL.dmnd
+dbCAN-PUL.xlsx
+dbCAN-PUL/
+```
+
+The `dbCAN-PUL/` directory is created by extracting the database archive downloaded during database preparation. Do not rename it to `dbCAN-PLU`.
 ### Setup Instructions
 
 #### 1. Installation
 
-Clone the repository into the directory where you want to run the metagenomics Snakemake pipeline.
-**Note:** This location must be on an HPC (High Performance Computing) cluster with access to a high-memory node (at least 600 GB RAM) and sufficient storage for all metagenomics analyses.
+Clone the repository into a directory on a shared filesystem that is accessible from both the login node and the SLURM compute nodes:
 
 ```bash
 cd /path/to/code/directory
-git clone <repository-url>
+
+git clone https://github.com/AAFC-Bioinfo-AAC/metagenomics-snakemake.git
+
+cd metagenomics-snakemake
 ```
+
+The cluster must provide:
+
+- Sufficient storage for the raw reads, intermediate files, final results, temporary files, databases, and Conda environments.
+- Access to nodes with enough memory to load the selected Kraken2 database.
+- A writable temporary directory accessible to the compute nodes.
+- SLURM partitions and accounts suitable for the requested resources.
+
+There is no universal minimum memory requirement because Kraken2 database sizes vary. The memory assigned to the `kraken2` rule must be large enough for the selected database and must comply with the cluster’s per-node, per-CPU, partition, and account limits.
+
+---
 
 #### 2. SLURM Profile
 
-##### 2.1. SLURM Profile Directory Structure
+##### 2.1. Repository and profile structure
 
-```bash
-metagenomics_pipeline/
+After cloning and configuring the workflow, the relevant directory structure is:
+
+```text
+metagenomics-snakemake/
 ├── workflow/
-|   └── rules
-|          └──preprocessing.smk
-|          └── ...
-|   └── snakefile
-│   └── env
-|        └── fastp.yaml
-|        └── bowtie2.yaml
-|        └── ...
+│   ├── Snakefile
+│   ├── rules/
+│   │   ├── preprocessing.smk
+│   │   ├── taxonomy.smk
+│   │   ├── amr_short_reads.smk
+│   │   ├── kegg.smk
+│   │   ├── mag.smk
+│   │   ├── db_can.smk
+│   │   └── env_versions.smk
+│   ├── envs/
+│   │   ├── fastp.yaml
+│   │   ├── bowtie2.yaml
+│   │   └── ...
+│   └── scripts/
 ├── config/
-│   └── config.yaml             ← workflow config
-|   └── samples.txt
+│   ├── config.yaml
+│   └── test_samplesheet.csv
 ├── profiles/
 │   └── slurm/
-│       └── config.yaml         ← profile config
-├── run_snakemake.sh            ← your SLURM launcher
-├── .env
-└── ...               
+│       ├── config_example.yaml
+│       ├── config.yaml
+│       └── README.md
+├── resources/
+├── example_snakemake_slurm_launcher.sh
+└── .env
 ```
 
-##### 2.2. Profile Configuration
+`profiles/slurm/config.yaml` and `.env` are user-configured files and may not exist immediately after cloning.
 
-The SLURM execution settings must be configured in `profiles/slurm/config.yaml.` An editable example is provided in this repository at `profiles/slurm/example_config.yaml` After editing, rename this file to `config.yaml` so that Snakemake recognizes it.
+##### 2.2. Profile configuration
 
-- This configuration file defines resource defaults, cluster submission commands, and job script templates for Snakemake. It should be customized for each specific HPC environment.
-- Remember to update the rerun-triggers: [input, params, software-env] setting whenever the pipeline is modified.
-- Pre-rule resource allocations should also be adjusted according to the size and number of input samples for each rule.
+Create the active SLURM profile by copying the provided example:
 
-#### 3. Configuration
+```bash
+cp profiles/slurm/config_example.yaml profiles/slurm/config.yaml
+```
 
-The pipeline requires the following configuration files: `config.yaml`, `.env`, and `samplesheet.csv`.
+Edit:
 
-##### 3.1. config/config.yaml
+```text
+profiles/slurm/config.yaml
+```
 
-The `config.yaml` file must be located in the `config` directory, which resides in the main Snakemake working directory. This file specifies crucial settings, including:
+Replace all placeholder values enclosed in angle brackets, including:
 
-- Path to the `samplesheet.csv`
-- Input and output directories
-- File paths to required databases
-- Taxonomy to be removed from bracken output at the phylum, genus and species level.
-- Threads for each rule
-- Parameters for software see the [Parameters](#parameters) section
+```text
+<ACCOUNT_NAME>
+<ACCOUNT_NAME_STANDARD>
+<ACCOUNT_NAME_LARGE>
+<PARTITION_NAME>
+<LARGE_MEMORY_PARTITION_NAME>
+<CLUSTER_NAME>
+<RUNTIME_MINUTES>
+<MEMORY_MB>
+```
 
-**Note:**
-You must edit `config.yaml` **before** running the pipeline to ensure all paths are correctly set.
-For best practice, use database paths that are in common locations to all users on the HPC.
+Remove optional settings, such as `slurm_cluster` or `slurm_qos`, if they are not required by the local cluster.
 
+The profile controls:
+
+- Use of the SLURM executor
+- Maximum workflow concurrency
+- Default memory and runtime requests
+- SLURM accounts and partitions
+- Per-rule resource allocations
+- Job retry behaviour
+- Filesystem latency handling
+- Conda environment use
+- The location of temporary shadow directories
+- Environment variables propagated to jobs
+
+The profile contains separate reusable settings for standard and large-memory partitions. Rules such as `kraken2` can therefore be assigned to a large-memory partition while other rules use standard compute nodes.
+
+Review every entry under `default-resources` and `set-resources` before running the workflow. In particular:
+
+- `mem_mb` is specified in MiB.
+- `runtime` is specified in minutes.
+- Per-rule memory and runtime requirements depend on the input size and selected databases.
+- Kraken2 memory should be based on the size of the database plus operating overhead.
+- Requested memory and threads must comply with the cluster’s maximum memory per node, maximum memory per CPU, and maximum CPU count per node.
+- The `jobs` setting controls the maximum number of jobs that Snakemake may submit or execute concurrently.
+- Thread allocations are configured separately in `config/config.yaml`.
+
+The example profile uses the following rerun triggers:
+
+```yaml
+rerun-triggers:
+  - input
+  - params
+  - software-env
+```
+
+This prevents jobs from being rerun solely because workflow source code or resource settings changed. Modify this list only if different rerun behaviour is desired.
+
+---
+
+#### 3. Workflow Configuration
+
+The workflow uses the following configuration files:
+
+- `config/config.yaml`
+- `.env`
+- A CSV sample sheet specified by `samplesheet` in `config/config.yaml`
+- `profiles/slurm/config.yaml` when running with the SLURM profile
+
+##### 3.1. `config/config.yaml`
+
+The main workflow configuration file must be located at:
+
+```text
+config/config.yaml
+```
+
+It defines:
+
+- The sample-sheet location
+- Raw-read and output directories
+- The Conda environment prefix
+- Host-removal index location
+- Kraken2, CARD, KEGG, CheckM2, and dbCAN database locations
+- Taxa removed from Bracken output at the domain, phylum, genus, and species levels
+- Thread allocations for individual rules
+- Assembly checkpoint criteria
+- Tool-specific analysis parameters
+
+See the [Parameters](#parameters) section for descriptions of the editable analysis settings.
+
+Paths may be absolute or relative, depending on the configuration setting. Project-relative paths are resolved against `PROJECT_ROOT`, which is defined in `.env`. The sample-sheet path is resolved relative to the `config` directory unless an absolute path is supplied.
+
+Shared database paths should normally be absolute and must be accessible from every compute node used by the workflow.
+
+Edit `config/config.yaml` before running Snakemake. Preserve the existing YAML indentation and data types when changing values.
 ##### 3.2. Environment file
 
-This file must contain paths to the **PROJECT ROOT**,  **USER SCRATCH**, and **RGI COMMON DATABASE**. Follow these instructions:
-
-- In the main Snakemake directory (where you are running Snakemake from)
+Create a file named `.env` in the repository root, alongside the `config`, `profiles`, and `workflow` directories:
 
 ```bash
 touch .env
 ```
 
-- Open the .env file and add
+The workflow requires the following environment variables:
+
+- `PROJECT_ROOT`: Base directory used to resolve project-relative paths in `config/config.yaml`.
+- `TMPDIR`: Shared, writable temporary directory used by workflow jobs.
+- `RGI_CARD`: Directory containing the prepared local CARD/RGI database.
+
+Add the variables using standard `KEY=value` syntax without spaces around the equals sign:
+
+```dotenv
+PROJECT_ROOT=/absolute/path/to/project
+TMPDIR=/absolute/path/to/shared/scratch/username/metagenomics_tmp
+RGI_CARD=/absolute/path/to/CARD/localDB
+```
+
+Create the temporary directory before running the workflow:
 
 ```bash
- PROJECT_ROOT = path/to/project/root
- TMPDIR = path/to/temp/on/cluster 
- RGI_CARD = path/to/card.json and card_reference.fasta
+mkdir -p /absolute/path/to/shared/scratch/username/metagenomics_tmp
 ```
+
+`TMPDIR` must be accessible from every compute node because intermediate files produced by one job may be required by a subsequent job running on a different node. Do not use node-local storage unless all dependent jobs are guaranteed to run on the same node.
+
+`RGI_CARD` must point to the prepared CARD database directory, not to `card.json` or `card_reference.fasta` individually. The directory requirements are described in the [CARD database for RGI BWT](#card-database-for-rgi-bwt) section.
+
+If `RGI_CARD` is not used, the CARD database can instead be specified with `card_latest` in `config/config.yaml`. In that case, remove `RGI_CARD` from the `envvars` list in `profiles/slurm/config.yaml`.
+
+The workflow loads `.env` with environment-variable overriding enabled. Therefore, values in `.env` take precedence over environment variables with the same names that were already exported in the Snakemake controller process. The `.env` file does not modify or overwrite `config/config.yaml`.
+
+The repository’s `.gitignore` excludes `.env`, preventing local path settings from being committed accidentally.
 
 ##### 3.3. Sample list
 
-`samplesheet.csv` Has the following column names: "sample","fastq_1","fastq_2". For the column 'sample" use the sampleID for the read pair, and for "fastq_1","fastq_2" have the names of the read1 and read2 files as they appear in the raw fastq files directory. The file location of the `samplesheet.csv` must be`config/samplesheet.csv`.
+The sample sheet is a comma-separated CSV file with the following required columns:
 
-**Example `samplesheet.csv`:**
+```text
+sample,fastq_1,fastq_2
+```
+
+- `sample` contains the unique sample identifier.
+- `fastq_1` contains the forward-read filename or path.
+- `fastq_2` contains the reverse-read filename or path.
+- Sample identifiers cannot contain `/` or `\`.
+- Empty sample identifiers, duplicate sample identifiers, and missing FASTQ entries cause the workflow to stop with an error.
+
+The sample-sheet location is specified in `config/config.yaml`:
+
+```yaml
+samplesheet: "samplesheet.csv"
+```
+
+A relative sample-sheet path is resolved against the `config` directory. Therefore, the example above refers to:
+
+```text
+config/samplesheet.csv
+```
+
+An absolute sample-sheet path can also be used.
+
+FASTQ entries may be absolute paths or filenames relative to the directory specified by `reads_dir`:
+
+```yaml
+reads_dir: "data/raw/fastq"
+```
+
+**Example `config/samplesheet.csv`:**
+
+```csv
 sample,fastq_1,fastq_2
 test_LLC82Nov10GR,test_LLC82Nov10GR_r1.fastq.gz,test_LLC82Nov10GR_r2.fastq.gz
 test_LLC82Sep06GR,test_LLC82Sep06GR_r1.fastq.gz,test_LLC82Sep06GR_r2.fastq.gz
+```
 
-#### 4. Running the pipeline
+Every listed FASTQ file must exist and be accessible from the compute nodes before the workflow is started.
 
-Complete steps **1.Installation**, **2.SLURM Profile**, and **3.Configuration** and ensure database paths have been added to the 'config/config.yaml'. Required databases are described in the [Pre-requisites](#pre-requisites).
+---
+
+#### 4. Running the Pipeline
+
+Before running the workflow, complete the following:
+
+1. Clone the repository.
+2. Install MinPath.
+3. Prepare the required databases.
+4. Configure `profiles/slurm/config.yaml`.
+5. Configure `config/config.yaml`.
+6. Create `.env`.
+7. Create and validate the sample sheet.
+
+Required software and databases are described in the [Prerequisites](#prerequisites) section.
 
 ##### 4.1. Conda environments
 
-Snakemake can automatically create and load Conda environments for each rule in your workflow. Confirm that the `workflow/envs` directory has the same .yaml files as this Github repo.
+The repository includes rule-specific Conda environment definitions under:
 
-If the compute cluster on the HPC you are using does not have internet acess then you must create the conda envrioments on the head node.
+```text
+workflow/envs/
+```
 
-Create conda envriments before any checkpoints:
+Snakemake creates and activates these environments automatically when Conda deployment is enabled. The provided SLURM profile enables it with:
+
+```yaml
+use-conda: true
+conda-frontend: mamba
+```
+
+Use a shared Conda prefix that is writable during environment creation and readable from every compute node.
+
+If compute nodes cannot access the internet, create all required environments from an internet-connected login or data-transfer node before submitting the workflow.
+
+From the repository root, activate the environment containing Snakemake and export the variables from `.env`:
 
 ```bash
-snakemake --use-conda \
+set -a
+source .env
+set +a
+```
+
+Create the workflow environments without running the analysis:
+
+```bash
+snakemake \
+  --snakefile workflow/Snakefile \
+  --configfile config/config.yaml \
+  --use-conda \
+  --conda-prefix /absolute/path/to/shared/conda/metagenomics-snakemake \
   --conda-create-envs-only \
-  --conda-prefix path/to/common/lab/folder/conda/metag-snakemake-conda
+  --cores 1
 ```
 
-Create environments after checkpoints:
+The MAG and dbCAN modules contain prewarming rules that expose environments associated with checkpoint-dependent jobs. Separate manual executions of `prewarm_mag_gate` and `prewarm_dbcan_gate` are not normally required.
 
-```bash
-#MAG pathway
-snakemake  --use-conda prewarm_mag_gate -j 1 --conda-prefix path/to/common/lab/folder/conda/metag-snakemake-conda
-#dbCAN pathway
-snakemake  --use-conda prewarm_dbcan_gate -j 1 --conda-prefix path/to/common/lab/folder/conda/metag-snakemake-conda
-```
+MinPath is an exception: its source code and bundled `glpsol` executable must be installed separately as described in the [MinPath](#minpath) section.
 
 ##### 4.2. SLURM launcher
 
-This is the script you use to submit the Snakemake pipeline to SLURM.
+The SLURM launcher starts a controller job. The controller runs Snakemake and submits individual rule jobs using `profiles/slurm/config.yaml`.
 
-- Defines resources for the job scheduler
-- Activates the Snakemake environment
-- Submits and manages jobs using the Snakemake `--profile` configuration `(profiles/slurm/)`.
-- Contains any additional Snakemake arguments (e.g.., `--unlock`, `--dry-run`, `--rerun-incomplete`)
-- For a snakemake report with runtime and software versions use --report path/to/metagenomics_report.html after the pipeline has completed
+Copy the example launcher:
 
 ```bash
-#!/bin/bash
-#SBATCH --job-name=run_snakemake.sh
-#SBATCH --output=run_snakemake_%j.out 
-#SBATCH --error=run_snakemake_%j.err 
-#SBATCH --cluster=<CLUSTER_NAME>
-#SBATCH --partition=<PARTITION_NAME>
-#SBATCH --account=<ACCOUNT_NAME>
-#SBATCH --mem=<MEMORY_MB>         # e.g., 2000
-#SBATCH --time=<HH:MM:SS>         # Must be long enough for completion of workflow 
-
-source path/to/source/conda/common/miniforge/miniforge3/etc/profile.d/conda.sh
-
-conda activate snakemake_env
-export PATH="$PWD/bin:$PATH"
-
-  snakemake \
-    --profile absolute/path/to/profiles/slurm \
-    --configfile absolute/path/to/config/config.yaml \
-    --conda-prefix absolute/path/to/common/conda/metagenomics-snakemake-conda \
-    --printshellcmds \
-    --keep-going 
+cp example_snakemake_slurm_launcher.sh snakemake_slurm_launcher.sh
 ```
+
+Edit `snakemake_slurm_launcher.sh` for the local cluster. A corrected template is shown below:
+
+```bash
+#!/usr/bin/env bash
+#SBATCH --job-name=metagenomics_snakemake
+#SBATCH --output=snakemake_controller_%j.out
+#SBATCH --error=snakemake_controller_%j.err
+#SBATCH --clusters=<CLUSTER_NAME>
+#SBATCH --partition=<CONTROLLER_PARTITION>
+#SBATCH --account=<CONTROLLER_ACCOUNT>
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=4000
+#SBATCH --time=<CONTROLLER_TIME>
+
+set -euo pipefail
+
+# Remove this SBATCH directive if the local SLURM installation does not use
+# multiple clusters:
+#     #SBATCH --clusters=<CLUSTER_NAME>
+
+# Make Conda available and activate the environment containing Snakemake.
+source /absolute/path/to/miniforge3/etc/profile.d/conda.sh
+conda activate /absolute/path/to/snakemake_environment
+
+# Run from the repository directory containing this launcher.
+REPOSITORY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$REPOSITORY_DIR"
+
+# Export variables from .env so they can be propagated to rule jobs.
+set -a
+source .env
+set +a
+
+mkdir -p "$TMPDIR"
+
+snakemake \
+  --snakefile workflow/Snakefile \
+  --profile profiles/slurm \
+  --configfile config/config.yaml \
+  --conda-prefix /absolute/path/to/shared/conda/metagenomics-snakemake \
+  --printshellcmds \
+  --keep-going
+```
+
+Replace every placeholder enclosed in angle brackets. If the cluster does not use multiple SLURM clusters, remove the `#SBATCH --clusters` line entirely.
+
+The controller job usually requires relatively little memory and only one CPU because computationally intensive rules are submitted as separate SLURM jobs. However, its time limit must be long enough for it to manage the complete workflow.
+
+Submit the controller:
+
+```bash
+sbatch snakemake_slurm_launcher.sh
+```
+
+Monitor the controller and rule jobs using the commands appropriate for the local SLURM installation, such as:
+
+```bash
+squeue --me
+```
+
+##### 4.3. Dry run
+
+A dry run validates the configuration and constructs the planned job graph without executing rules:
+
+```bash
+set -a
+source .env
+set +a
+
+snakemake \
+  --snakefile workflow/Snakefile \
+  --profile profiles/slurm \
+  --configfile config/config.yaml \
+  --conda-prefix /absolute/path/to/shared/conda/metagenomics-snakemake \
+  --dry-run \
+  --printshellcmds
+```
+
+##### 4.4. Unlocking the working directory
+
+If a previous Snakemake controller terminated unexpectedly, the working directory may remain locked.
+
+First confirm that no controller or workflow jobs are still running. Then unlock the working directory:
+
+```bash
+set -a
+source .env
+set +a
+
+snakemake \
+  --snakefile workflow/Snakefile \
+  --configfile config/config.yaml \
+  --unlock \
+  --cores 1
+```
+
+Never run `--unlock` while another Snakemake process is actively using the same working directory.
+
+##### 4.5. Snakemake report
+
+After the workflow has finished successfully, generate a self-contained HTML report from the repository root:
+
+```bash
+set -a
+source .env
+set +a
+
+snakemake \
+  --snakefile workflow/Snakefile \
+  --configfile config/config.yaml \
+  --report metagenomics_report.html \
+  --cores 1
+```
+
+The report includes workflow provenance, topology, and runtime information stored in the `.snakemake` metadata directory.
 
 ### Notes
 
-- The `profile/slurm/config.yaml` has been configured for our SLURM cluster. This will need to be configured for the cluster you are using.
-- temp folder is set to `path/to/scratch/${USER}/tmpdir`
-- A Snakemake report can be generated from the head node with `snakemake --report path/to/report/report_name.html`
+- `profiles/slurm/config.yaml` must be customized for the local cluster.
+- The launcher’s SLURM resources apply only to the Snakemake controller. Resources for individual rules are defined in the profile.
+- All input, output, database, Conda, and shared temporary paths must be accessible from the compute nodes.
+- The Conda prefix should not be deleted while jobs are using its environments.
+- Strict Conda channel priority is not inherently incompatible with this workflow. Do not change a user-wide channel-priority setting unless an actual dependency-resolution problem requires it.
+- Values loaded from `.env` can override existing process environment variables but do not alter `config/config.yaml`.
+- When both are configured, `RGI_CARD` in `.env` takes precedence over `card_latest` in `config/config.yaml`.
 
-#### Warnings
+## Outputs
 
-- The conda environments will not be created if the conda configuration is `conda config --set channel_priority strict`.
-- Set conda to `conda config --set channel_priority flexible` or use libmamba.
-- The `.env` file can overwrite the `config/config.yaml` file
+Output locations are controlled by the directory settings in `config/config.yaml`:
 
-#### Current issues
+| Module | Configuration setting |
+| --- | --- |
+| Preprocessing logs | `log_files` |
+| Host-depleted reads | `reads_host_dep` |
+| Kraken2 | `kraken_short_reads_dir` |
+| Bracken | `bracken_short_reads_dir` |
+| AMR screening | `amr_screening_dir` |
+| KEGG | `kegg_output_dir` |
+| Assemblies and MAGs | `mag_output_dir` |
+| dbCAN | `dbcan_output_dir` |
+| Software versions | `software_versions` |
 
-None.
+In the tables below, `{sample}` represents the sample identifier from the sample sheet.
 
-#### Resource usage
-
-- Kraken2: Large compute node with 840 GB.
-- Generate Snakemake report to track walltime
-
-## Output
+Files declared with Snakemake’s `temp()` function may be removed automatically after all downstream rules that require them have completed. Files declared with `protected()` are retained and made write-protected after successful completion.
 
 ### Preprocessing Module (`preprocessing.smk`)
 
-| **Output Type**         | **Filename**                                                                                          | **Description**                                                                                                                                                                                                                                                                                           |
-|------------------------ |-------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Trimmed paired reads    | temp(`sample_r1.fastq.gz`), temp(`sample_r2.fastq.gz`)                                                | Adapter and quality trimmed paired-end reads from `fastp_pe` rule. These are marked temporary in the rule and will be removed once they are not needed by the pipeline. Can easily be changed by opening `workflow/rules/preprocessing.smk` and removing the `temp()`.  |
-| Fastp Report            | temp(`sample.fastp.html`), temp(`sample.fastp.json`)                                                  | Quality score statistics before and after processing. These are marked temporary in the rule and will be removed once they are not needed by the pipeline. Can easily be changed by opening `workflow/rules/preprocessing.smk` and removing the `temp()`.              |
-| Sorted BAM file         | `sample.bam`                                                                                          | Aligned reads to Host/PhiX reference using Bowtie2 (`bowtie2_align` rule).                                                                                                                                                                                          |
-| Clean read pairs        | protected(`sample_trimmed_clean_R1.fastq.gz`), protected(`sample_trimmed_clean_R2.fastq.gz`)          | Host- and PhiX-depleted reads from `extract_unmapped_fastq`. These files are marked protected.                                                                                                                                                                       |                                                                                                                                                                       |
+| Output type | Filename | Retention | Description |
+| --- | --- | --- | --- |
+| Trimmed paired reads | `{sample}_r1.fastq.gz`, `{sample}_r2.fastq.gz` | Temporary | Adapter- and quality-trimmed paired reads generated by `fastp_pe`. |
+| Trimmed unpaired reads | `{sample}_u1.fastq.gz`, `{sample}_u2.fastq.gz` | Temporary | Reads retained by fastp when their mate does not pass filtering. |
+| fastp reports | `{sample}.fastp.html`, `{sample}.fastp.json` | Temporary | HTML and JSON summaries of read quality before and after trimming. |
+| Host-alignment BAM | `bam/{sample}.bam` | Temporary | Coordinate-sorted BAM containing reads aligned against the configured host and PhiX Bowtie2 index. |
+| Host-depleted read pairs | `{sample}_trimmed_clean_R1.fastq.gz`, `{sample}_trimmed_clean_R2.fastq.gz` | Protected | Paired reads for which both mates were unmapped against the host and PhiX index. These reads are used by downstream modules. |
+
+The trimmed reads and fastp reports are written below `$TMPDIR` using the directory specified by `reads_trimmed`. To retain these files permanently, remove the corresponding `temp()` declarations from `workflow/rules/preprocessing.smk` and direct them to persistent storage.
 
 ---
 
 ### Taxonomy Module (`taxonomy.smk`)
 
-| **Output Type**                             | **Filename**                                                                                                                                               | **Description**                                             |
-| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------- |
-| Kraken output                               | `sample.kraken`, `sample.report.txt`                                                                                                                       | Kraken2 taxonomy assignment results.                        |
-| Bracken species/genus/phylum/domain reports | `sample_bracken.species.report.txt`, `sample_bracken.genus.report.txt`, `sample_bracken.phylum.report.txt`, `sample_bracken.domain.report.txt`             | Refined abundance estimates at multiple taxonomic levels.   |
-| Combined abundance tables                   | `merged_abundance_species.txt`, `merged_abundance_genus.txt`, `merged_abundance_phylum.txt`, `merged_abundance_domain.txt`                                 | Merged Bracken abundance tables across samples.             |
-| Cleaned abundance tables                    | `merged_abundance_species_cleaned.txt`, `merged_abundance_genus_cleaned.txt`, `merged_abundance_phylum_cleaned.txt`, `merged_abundance_domain_cleaned.txt` | Host taxa removed and normalized Bracken outputs.           |
-| Adjusted Bracken tables                     | `bracken_cleaned_adjusted_species.txt`, `bracken_cleaned_adjusted_genus.txt`, `bracken_cleaned_adjusted_phylum.txt`                                        | Relative abundance recalculated for prokaryotic reads only. |
-| Combined relative and raw abundance tables  | `bracken_*_raw_abundance.csv`, `bracken_*_rel_abundance_default.csv`, `bracken_*_rel_abundance_adjusted.csv`                                               | Consolidated Bracken outputs (raw, default, adjusted).      |
+| Output type | Filename | Description |
+| --- | --- | --- |
+| Kraken2 classifications | `{sample}.kraken` | Per-read Kraken2 taxonomic classifications. |
+| Kraken2 report | `{sample}.report.txt` | Hierarchical Kraken2 classification summary. |
+| Bracken rank reports | `{sample}_bracken.species.report.txt`, `{sample}_bracken.genus.report.txt`, `{sample}_bracken.phylum.report.txt`, `{sample}_bracken.domain.report.txt` | Bracken abundance estimates at species, genus, phylum, and domain levels. |
+| Combined Bracken tables | `merged_abundance_species.txt`, `merged_abundance_genus.txt`, `merged_abundance_phylum.txt`, `merged_abundance_domain.txt` | Rank-specific Bracken tables combined across all samples. |
+| Cleaned Bracken tables | `merged_abundance_species_cleaned.txt`, `merged_abundance_genus_cleaned.txt`, `merged_abundance_phylum_cleaned.txt`, `merged_abundance_domain_cleaned.txt` | Combined tables after removing taxa specified by `taxa_filters` in `config/config.yaml`. Fractional abundances are recalculated after filtering. |
+| Prokaryote-adjusted tables | `bracken_cleaned_adjusted_species.txt`, `bracken_cleaned_adjusted_genus.txt`, `bracken_cleaned_adjusted_phylum.txt` | Species-, genus-, and phylum-level tables containing additional fractions calculated using the total number of reads assigned to Bacteria and Archaea. |
+| Analysis-ready CSV tables | `bracken_species_raw_abundance.csv`, `bracken_species_rel_abundance_default.csv`, `bracken_species_rel_abundance_adjusted.csv`, with corresponding genus and phylum files | Simplified raw-count and relative-abundance matrices suitable for downstream statistical analysis. |
 
 ---
 
 ### AMR Module (`amr_short_reads.smk`)
 
-| **Output Type** | **Filename**                                                                         | **Description**                                                |
-| ----------------- | -------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| CARD DB marker  | `rgi_reload_db.done`                                                                 | Confirms CARD database has been loaded (prevents reloading).   |
-| RGI BWT outputs | `sample_paired.*.txt` (e.g., `allele_mapping_data.txt`, `overall_mapping_stats.txt`) | Antimicrobial resistance gene profiling outputs using RGI BWT. |
+| Output type | Filename | Retention | Description |
+| --- | --- | --- | --- |
+| CARD validation marker | `rgi_card_db.validated` | Retained | Confirms that the configured CARD/RGI database and KMA index passed the workflow’s validation checks. This file is written below `log_files`. |
+| Allele-level results | `{sample}_paired.allele_mapping_data.txt` | Retained | RGI BWT read-mapping results summarized by CARD reference allele. |
+| Gene-level results | `{sample}_paired.gene_mapping_data.txt` | Retained | RGI BWT results summarized at the AMR gene level. |
+| Mapping-artifact statistics | `{sample}_paired.artifacts_mapping_stats.txt` | Retained | Statistics describing potential read-mapping artifacts. |
+| Overall mapping statistics | `{sample}_paired.overall_mapping_stats.txt` | Retained | Overall RGI BWT mapping summary. |
+| Reference statistics | `{sample}_paired.reference_mapping_stats.txt` | Retained | Mapping statistics for CARD reference sequences. |
+| Allele-mapping JSON | `{sample}_paired.allele_mapping_data.json` | Temporary | Intermediate structured RGI output. |
+| Sorted BAM and index | `{sample}_paired.sorted.length_100.bam`, `{sample}_paired.sorted.length_100.bam.bai` | Temporary | Intermediate RGI/KMA alignment files. |
+
+Each sample’s RGI outputs are written in a separate `{sample}/` directory below `amr_screening_dir`.
 
 ---
 
 ### KEGG Module (`kegg.smk`)
 
-| **Output Type**              | **Filename**                                                                                                                                                                                                                 | **Description**                                                                                                                                                    |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Concatenated read pairs      | `sample_merged.fastq.gz`                                                                                                                                                                                                     | Merged clean reads for KEGG processing.                                                                                                                            |
-| DIAMOND formatted database   | `prokaryotes.pep.dmnd`                                                                                                                                                                                                       | The KEGG database file`prokaryotes.pep.gz` is used to create the DIAMOND formatted database only if the database does not already exists                           |
-| DIAMOND database done marker | `prokaryotes_db_done.txt`                                                                                                                                                                                                    | Confirms that`prokaryotes.pep.dmnd` exists                                                                                                                         |
-| DIAMOND alignment output     | `sample_diamond_output.m8`                                                                                                                                                                                                   | Alignment summary of reads vs KEGG protein database.                                                                                                               |
-| Read count                   | `sample_read_count.txt`                                                                                                                                                                                                      | Total read count for concatenated read pairs.                                                                                                                      |
-| KEGG gene abundance table    | `sample_gene_ko_abundance.tsv`                                                                                                                                                                                               | KEGG orthology gene abundance normalized by RPKM and CPM.                                                                                                          |
-| KEGG KO lists                | `sample_ko_list_raw.txt`, `sample_ko_list_fixed.txt`                                                                                                                                                                         | KEGG orthology ID lists for MinPath input.                                                                                                                         |
-| MinPath output               | `sample_minpath_output.txt`                                                                                                                                                                                                  | Predicted minimal set of KEGG pathways (MinPath).                                                                                                                  |
-| MinPath pathway abundance    | `sample_aggregated_minpath.tsv`                                                                                                                                                                                              | Abundance table for MinPath-confirmed pathways.                                                                                                                    |
-| KEGG category table          | `sample_ko_pathway_abundance_with_category.tsv`,`sample_ko_pathway_abundance_with_category_sampleID.tsv`, `combined_ko_pathway_abundance_with_category.tsv`, and  `combined_ko_pathway_abundance_with_category_filtered.tsv` | Pathways summarized into higher-level KEGG BRITE categories for each sample and a combined table of all the pathways with and without an exclusion pathway filter. |
-| Long format KEGG tables | `Pathways_categorized_CPM.tsv`,`Pathways_no_categorization_CPM.tsv`, `KEGG_gene_hits_raw.tsv`, `KO_CPM.tsv`, and  `Read_counts_per_sample.tsv` | Final tables from the KEGG workflow that are ready for comparisions between samples. |
+| Output type | Filename | Description |
+| --- | --- | --- |
+| Concatenated reads | `{sample}_merged.fastq.gz` | Host-depleted R1 and R2 FASTQ records concatenated into one compressed file for translated alignment. The reads are concatenated, not merged by sequence overlap. |
+| DIAMOND database | `prokaryotes.pep.dmnd` | DIAMOND-formatted database created from `prokaryotes.pep.gz` if a completed database does not already exist. |
+| DIAMOND database marker | `prokaryotes_db_done.txt` | Records successful availability or construction of `prokaryotes.pep.dmnd`. This file is written below `log_files`. |
+| DIAMOND alignment output | `{sample}_diamond_output.m8` | Tabular translated alignments of metagenomic reads against the KEGG protein database. |
+| Temporary uncompressed reads | `{sample}_tmp.fastq` | Temporary FASTQ used as DIAMOND input and removed after the alignment completes. |
+| Read count | `{sample}_read_count.txt` | Number of FASTQ records in the concatenated R1 and R2 input. |
+| Gene and KO abundance | `{sample}_gene_ko_abundance.tsv` | Per-gene KEGG Orthology assignments with raw hit abundance, reads per kilobase (RPK), and copies per million reads. |
+| MinPath input | `{sample}_ko_list_raw.txt`, `{sample}_ko_list_fixed.txt` | Unique KO identifiers, including the two-column format required by MinPath. |
+| MinPath report | `{sample}_minpath_output.txt` | Parsimonious set of pathways inferred from the detected KO identifiers. |
+| Pathway abundance | `{sample}_aggregated_minpath.tsv` | Raw abundance, RPK, and copies-per-million values aggregated for pathways retained by MinPath. |
+| BRITE-annotated pathway table | `{sample}_ko_pathway_abundance_with_category.tsv` | Per-sample pathway table containing pathway names, top-level categories, and subcategories from the KEGG BRITE hierarchy. |
+| Sample-labelled pathway table | `{sample}_ko_pathway_abundance_with_category_sampleID.tsv` | BRITE-annotated pathway table with the sample identifier added as the first column. |
+| Combined pathway table | `combined_ko_pathway_abundance_with_category.tsv` | BRITE-annotated pathway results combined across samples. |
+| Filtered combined pathway table | `combined_ko_pathway_abundance_with_category_filtered.tsv` | Combined pathway table after removing pathways listed in `KEGG_BRITE_pathway_exclusion_file.txt`. |
+| Categorized pathway CPM matrix | `pathways_categorized_cpm.tsv` | Wide pathway CPM matrix containing pathway names and BRITE categories. |
+| Uncategorized pathway CPM matrix | `pathways_no_categorization_cpm.tsv` | Wide pathway CPM matrix without BRITE annotation columns. |
+| Gene–KO CPM matrix | `kegg_gene_hits_raw.tsv` | Wide sample-by-gene/KO matrix containing copies-per-million values. |
+| KO CPM matrix | `ko_cpm.tsv` | Wide sample-by-KO matrix in which values are summed across genes assigned to each KO. |
+| Sample read counts | `read_counts_per_sample.tsv` | Concatenated FASTQ read count reported for each sample. |
 
 ---
 
 ### MAG Module (`mag.smk`)
 
-| **Output Type**        | **Filename**                                                 | **Description**                                         |
-| ------------------------ | -------------------------------------------------------------- | --------------------------------------------------------- |
-| Assembly               | `sample_assembly.contigs.fa`                                 | Assembled contigs for each sample (`megahit_assembly`). |
-| Filtered sample list   | `samples_with_contigs.txt`                                   | List of samples with successful assemblies.             |
-| Bowtie2 index          | temp(`sample_assembly.[1-4].bt2`, `sample_assembly.rev.[1-2].bt2`) These are marked temporary in the rule and will be removed once they are not needed by the pipeline. Can easily be changed by opening `workflow/rules/mag.smk` and removing the `temp()`. | Bowtie2 index files for each assembly.                  |
-| Assembly alignment map | `sample.bam`                                                 | Reads mapped back to assembly.                          |
-| Depth file             | `sample_depth.txt`                                           | Contig depth and variance for binning with MetaBAT2.    |
-| Binning outputs        | `SAMPLE_ASSEMBLY/metabat2/sample/bins`, `.../unbinned`       | Binned and unbinned contigs from MetaBAT2.              |
-| CheckM2 quality report | `quality_report.tsv`                                         | Completeness and contamination metrics for bins/MAGs.   |
+The assembly checkpoint evaluates each sample before downstream binning. Only assemblies satisfying all configured `assembly_filter` criteria proceed through the MAG workflow.
+
+| Output type | Filename or directory | Retention | Description |
+| --- | --- | --- | --- |
+| Sample assembly | `{sample}_assembly.contigs.fa` | Retained | MEGAHIT assembly generated independently for each sample. An empty file is created when MEGAHIT produces no contigs. |
+| Assembly checkpoint list | `passed_checkpoint_assemblies.txt` | Retained | Sample identifiers for assemblies that passed all configured checkpoint thresholds. |
+| Assembly metrics | `samples_with_contigs.metrics.tsv` | Retained | File size, total qualifying base pairs, qualifying contig count, total contig count, pass/fail status, and failure reason for every assembly. |
+| Bowtie2 assembly index | `{sample}_assembly.1.bt2l`, `{sample}_assembly.2.bt2l`, `{sample}_assembly.3.bt2l`, `{sample}_assembly.4.bt2l`, `{sample}_assembly.rev.1.bt2l`, `{sample}_assembly.rev.2.bt2l` | Temporary | Large Bowtie2 index generated for each assembly that passes the checkpoint. |
+| Assembly-alignment BAM | `{sample}.bam` | Retained | Cleaned reads mapped back to the corresponding sample assembly and coordinate-sorted. |
+| Contig-depth table | `metabat2/{sample}/{sample}_depth.txt` | Retained | Per-contig depth and variance generated for MetaBAT2. |
+| Genome bins | `metabat2/{sample}/bins/` | Retained | Numbered genome-bin FASTA files produced by MetaBAT2. The directory may also contain `BinInfo.txt`. |
+| Unbinned and excluded contigs | `metabat2/{sample}/unbinned/` | Retained | MetaBAT2 outputs for unbinned, low-depth, or short contigs when produced. |
+| CheckM2 quality report | `metabat2/{sample}/checkm2/quality_report.tsv` | Retained | CheckM2 completeness, contamination, and quality estimates for recovered bins. |
+| CheckM2 status | `metabat2/{sample}/checkm2/status.tsv` | Retained | Indicates whether CheckM2 completed or was skipped because MetaBAT2 produced no bins. |
+
+---
 
 ### dbCAN Module (`db_can.smk`)
 
-| **Output Type** | **Filename / Directory** | **Description** |
-|-----------------|--------------------------|-----------------|
-| Gene predictions | `sample_genes.gff` | Predicted protein-coding genes in GFF format (from `pyrodigal`). |
-| Protein sequences | `sample_proteins.faa` | Predicted protein sequences used as input for all dbCAN analyses. |
-| Coding sequences | `sample.cds` | Nucleotide coding sequences for predicted genes. |
-| Read alignment map | `sample.bam` | Reads mapped to the sample assembly (from `bwa_mem_mapping`). |
-| Alignment index | temp(`sample.bam.bai`) | Index file for the BAM alignment. Marked temporary in the rule and will be removed once not needed by the pipeline. |
-| Gene depth file | `sample.depth.txt` | Sequencing depth of predicted genes, used for abundance normalization. |
-| CAZyme annotation results | `sample/sample_cazyme/` | Directory containing CAZyme family and subfamily annotations, including HMMER, DIAMOND, and integrated summary outputs. |
-| CGC prediction results | `sample/sample_cgc/` | Directory containing CAZyme Gene Cluster (CGC) predictions, functional gene annotations, and cluster summary tables. |
-| CAZyme + CGC + substrate prediction results | `sample/sample_dbcan/` | Directory containing CAZyme annotation, CGC prediction, and substrate prediction results, including dbCAN-PUL homology analyses. |
-| CAZyme abundance (family) | `fam_abund.out` | Normalized abundances (RPM) of CAZyme families. |
-| CAZyme abundance (subfamily) | `subfam_abund.out` | Normalized abundances (RPM) of CAZyme subfamilies. |
-| CAZyme abundance (EC) | `EC_abund.out` | Normalized abundances (RPM) of EC numbers associated with CAZymes. |
-| Substrate abundance (family-based) | `fam_substrate_abund.out` | Normalized abundances (RPM) of predicted substrates inferred from CAZyme families. |
-| CGC abundance | `CGC_abund.out` | Normalized abundances (RPM) of CAZyme Gene Clusters (CGCs). |
-| CGC substrate abundance (PUL homology) | `CGC_substrate_PUL_homology.out` | Predicted CGC substrate abundances inferred from homology to experimentally characterized PULs. |
-| CGC substrate abundance (majority voting) | `CGC_substrate_majority_voting.out` | Predicted CGC substrate abundances inferred using a majority-voting approach based on CAZyme composition. |
-| Synteny plots | `synteny_pdf/` | Synteny plots comparing predicted CGCs to known Polysaccharide Utilization Loci (PULs). |
+The dbCAN checkpoint includes samples with a non-empty assembly. This checkpoint is separate from the more restrictive MAG assembly-quality checkpoint.
 
-Notes:
+| Output type | Filename or directory | Retention | Description |
+| --- | --- | --- | --- |
+| dbCAN checkpoint list | `nonempty_assemblies.txt` | Retained | Sample identifiers with non-empty assemblies selected for dbCAN analysis. This file is written below `mag_output_dir`. |
+| Gene annotations | `{sample}_genes.gff` | Retained | Protein-coding genes predicted by Pyrodigal in metagenomic mode. |
+| Protein sequences | `{sample}_proteins.faa` | Retained | Predicted proteins used as input for run_dbCAN. |
+| Coding sequences | `{sample}.cds` | Retained | Predicted nucleotide coding sequences. |
+| Standalone CAZyme annotation | `{sample}_cazyme/` | Retained when requested | Results from the optional `cazyme_annotation` rule, including `overview.tsv`. |
+| Standalone CGC analysis | `{sample}_pul/` | Retained when requested | Results from the optional `cgc_calling` rule, including `overview.tsv`, `cgc.gff`, and `cgc_standard_out.tsv`. The `_pul` directory name is retained for workflow compatibility. |
+| Comprehensive dbCAN analysis | `{sample}_dbcan/` | Retained | Results from `substrate_prediction`, including CAZyme annotations, CGCs, `cgc_standard_out.tsv`, `substrate_prediction.tsv`, PUL-homology results, and synteny plots when produced. |
+| Read-alignment BAM | `mapping/{sample}.bam` | Retained | Cleaned reads mapped to the corresponding sample assembly with BWA-MEM and coordinate-sorted with SAMtools. |
+| BAM index | `mapping/{sample}.bam.bai` | Temporary | BAM index required for gene-level coverage calculation. |
+| BWA assembly index | `{sample}_assembly.contigs.fa.amb`, `.ann`, `.bwt`, `.pac`, `.sa` | Temporary | BWA index files generated from the sample assembly. |
+| Gene-depth table | `{sample}_abund/{sample}.depth.txt` | Retained | Sequencing depth of predicted genes after applying the configured overlap, mapping-quality, and identity thresholds. |
+| CAZyme-family abundance | `{sample}_abund/fam_abund.out` | Retained | CAZyme-family abundance normalized as reads per million (RPM). |
+| CAZyme-subfamily abundance | `{sample}_abund/subfam_abund.out` | Retained | CAZyme-subfamily abundance normalized as RPM. |
+| EC abundance | `{sample}_abund/EC_abund.out` | Retained | Abundance of Enzyme Commission numbers associated with CAZymes, normalized as RPM. |
+| Family-based substrate abundance | `{sample}_abund/fam_substrate_abund.out` | Retained | Substrate abundance inferred from CAZyme families and normalized as RPM. |
+| CGC abundance | `{sample}_abund/CGC_abund.out` | Retained | CAZyme gene cluster abundance normalized as RPM. |
+| PUL-homology substrate abundance | `{sample}_abund/CGC_substrate_PUL_homology.out` | Retained | CGC substrate abundance inferred by homology to characterized PULs. |
+| Majority-voting substrate abundance | `{sample}_abund/CGC_substrate_majority_voting.out` | Retained | CGC substrate abundance inferred using majority voting. |
+| Synteny plots | `{sample}_dbcan/synteny_pdf/` | Retained when produced | Visual comparisons between predicted CGCs and characterized PULs. |
+| Abundance-skip marker | `{sample}_abund/did_not_run_get_abundances_rpm.txt` | Conditional | Explains which abundance calculations were skipped when annotation, CGC, or substrate tables contained no data rows. |
 
-- Users may enable or disable individual steps by editing `workflow/rules/db_can.smk` and the `rule all` section in `workflow/Snakefile`.
-- CAZyme Gene Clusters (CGCs) are identified prior to substrate prediction.
-- Polysaccharide Utilization Loci (PULs) are not explicitly called; predicted CGCs are compared to experimentally characterized PULs to infer likely substrates.
-- If the `substrate_prediction` rule is disabled, the `get_abundances_rpm` rule can use `overview.tsv` generated by the `cazyme_annotation` or `cgc_calling` rules, with the input path updated accordingly.
+The default `rule all` requests the comprehensive `substrate_prediction` analysis and the outputs of `get_abundances_rpm`. The standalone `cazyme_annotation` and `cgc_calling` rules are available as alternative explicit targets but are not required by the default complete workflow.
+
+Changing only the `overview.tsv` input of `get_abundances_rpm` is not sufficient to replace the comprehensive analysis with a CAZyme-only or CGC-only analysis. The rule also requires `cgc_standard_out.tsv`, `substrate_prediction.tsv`, the complete dbCAN output directory, and the associated declared abundance outputs.
+
+Predicted CGCs are compared with experimentally characterized PULs to infer likely substrates. The workflow does not independently designate every predicted CGC as a PUL.
+
+---
+
+### Software-Version Outputs (`env_versions.smk`)
+
+| Output type | Filename | Description |
+| --- | --- | --- |
+| Complete environment summary | `software_versions_summary.txt` | Package listings collected from environments found under the configured Conda prefix. |
+| Key software summary | `key_bioinformatics_software.txt` | Text summary containing versions of principal bioinformatics programs. |
+| Key software HTML report | `key_bioinformatics_software.html` | HTML version of the key-software summary included in the Snakemake report. |
+
+---
+
+### MAG Module (`mag.smk`)
+
+The assembly checkpoint evaluates each sample before downstream binning. Only assemblies satisfying all criteria under `assembly_filter` in `config/config.yaml` proceed through the MAG workflow.
+
+| Output type | Filename or directory | Retention | Description |
+| --- | --- | --- | --- |
+| Sample assembly | `{sample}_assembly.contigs.fa` | Retained | MEGAHIT assembly generated independently for each sample. An empty file is created if MEGAHIT produces no contigs. |
+| Assembly checkpoint list | `passed_checkpoint_assemblies.txt` | Retained | Sample identifiers for assemblies that passed all configured checkpoint criteria. |
+| Assembly metrics | `samples_with_contigs.metrics.tsv` | Retained | File size, qualifying base pairs, qualifying contig count, total contig count, pass/fail status, and failure reason for each assembly. |
+| Bowtie2 assembly index | `{sample}_assembly.1.bt2l`, `{sample}_assembly.2.bt2l`, `{sample}_assembly.3.bt2l`, `{sample}_assembly.4.bt2l`, `{sample}_assembly.rev.1.bt2l`, `{sample}_assembly.rev.2.bt2l` | Temporary | Large Bowtie2 index generated for each assembly that passes the checkpoint. |
+| Assembly-alignment BAM | `{sample}.bam` | Retained | Cleaned paired-end reads mapped back to the corresponding sample assembly and coordinate-sorted. |
+| Contig-depth table | `metabat2/{sample}/{sample}_depth.txt` | Retained | Per-contig depth and variance generated for MetaBAT2. |
+| Genome bins | `metabat2/{sample}/bins/` | Retained | Numbered genome-bin FASTA files produced by MetaBAT2. The directory may also contain `BinInfo.txt`. |
+| Unbinned and excluded contigs | `metabat2/{sample}/unbinned/` | Retained | MetaBAT2 outputs containing unbinned, low-depth, or short contigs when produced. |
+| CheckM2 quality report | `metabat2/{sample}/checkm2/quality_report.tsv` | Retained | CheckM2 completeness, contamination, and quality estimates for recovered bins. |
+| CheckM2 status | `metabat2/{sample}/checkm2/status.tsv` | Retained | Indicates whether CheckM2 completed or was skipped because MetaBAT2 produced no bins. |
+
+The Bowtie2 assembly indexes are declared with `temp()` and may be removed after all downstream rules requiring them have completed. To retain them, remove the corresponding `temp()` declaration from `index_assembly` in `workflow/rules/mag.smk`.
+
+---
+
+### dbCAN Module (`db_can.smk`)
+
+The dbCAN checkpoint selects samples with non-empty assemblies. This is separate from the more restrictive MAG assembly-quality checkpoint; consequently, an assembly may proceed through dbCAN even if it does not meet all MAG binning thresholds.
+
+| Output type | Filename or directory | Retention | Description |
+| --- | --- | --- | --- |
+| dbCAN checkpoint list | `nonempty_assemblies.txt` | Retained | Sample identifiers with non-empty assemblies selected for dbCAN analysis. This file is written below `mag_output_dir`. |
+| Gene annotations | `{sample}/{sample}_genes.gff` | Retained | Protein-coding genes predicted by Pyrodigal in metagenomic mode. |
+| Protein sequences | `{sample}/{sample}_proteins.faa` | Retained | Predicted proteins used as input for run_dbCAN. |
+| Coding sequences | `{sample}/{sample}.cds` | Retained | Predicted nucleotide coding sequences. |
+| Standalone CAZyme annotation | `{sample}/{sample}_cazyme/` | Retained when requested | Results from the optional `cazyme_annotation` rule, including `overview.tsv`. |
+| Standalone CGC analysis | `{sample}/{sample}_pul/` | Retained when requested | Results from the optional `cgc_calling` rule, including `overview.tsv`, `cgc.gff`, and `cgc_standard_out.tsv`. The `_pul` directory name is retained for workflow compatibility. |
+| Comprehensive dbCAN analysis | `{sample}/{sample}_dbcan/` | Retained | Results from `substrate_prediction`, including CAZyme annotations, CGCs, `cgc_standard_out.tsv`, `substrate_prediction.tsv`, PUL-homology results, and synteny plots when produced. |
+| Read-alignment BAM | `{sample}/mapping/{sample}.bam` | Retained | Cleaned reads mapped to the corresponding sample assembly with BWA-MEM and coordinate-sorted with SAMtools. |
+| BAM index | `{sample}/mapping/{sample}.bam.bai` | Temporary | BAM index required for gene-level coverage calculation. |
+| BWA assembly index | `{sample}_assembly.contigs.fa.amb`, `.ann`, `.bwt`, `.pac`, `.sa` | Temporary | BWA index files generated from the corresponding sample assembly. |
+| Gene-depth table | `{sample}/{sample}_abund/{sample}.depth.txt` | Retained | Sequencing depth of predicted genes after applying the configured overlap, mapping-quality, and identity thresholds. |
+| CAZyme-family abundance | `{sample}/{sample}_abund/fam_abund.out` | Retained | CAZyme-family abundance normalized as reads per million (RPM). |
+| CAZyme-subfamily abundance | `{sample}/{sample}_abund/subfam_abund.out` | Retained | CAZyme-subfamily abundance normalized as RPM. |
+| EC abundance | `{sample}/{sample}_abund/EC_abund.out` | Retained | Abundance of Enzyme Commission numbers associated with CAZymes, normalized as RPM. |
+| Family-based substrate abundance | `{sample}/{sample}_abund/fam_substrate_abund.out` | Retained | Substrate abundance inferred from CAZyme families and normalized as RPM. |
+| CGC abundance | `{sample}/{sample}_abund/CGC_abund.out` | Retained | CAZyme gene cluster abundance normalized as RPM. |
+| PUL-homology substrate abundance | `{sample}/{sample}_abund/CGC_substrate_PUL_homology.out` | Retained | CGC substrate abundance inferred by homology to experimentally characterized PULs. |
+| Majority-voting substrate abundance | `{sample}/{sample}_abund/CGC_substrate_majority_voting.out` | Retained | CGC substrate abundance inferred using majority voting. |
+| Synteny plots | `{sample}/{sample}_dbcan/synteny_pdf/` | Retained when produced | Visual comparisons between predicted CGCs and experimentally characterized PULs. |
+| Abundance-skip marker | `{sample}/{sample}_abund/did_not_run_get_abundances_rpm.txt` | Conditional | Explains which abundance calculations were skipped when annotation, CGC, or substrate tables contained no data rows. |
+
+The default `rule all` requests the comprehensive `substrate_prediction` analysis and the outputs from `get_abundances_rpm`. The standalone `cazyme_annotation` and `cgc_calling` rules are alternative explicit targets and are not required by the default complete workflow.
+
+CAZyme gene clusters are identified before substrate prediction. Predicted CGCs are compared with experimentally characterized PULs to infer likely substrates; the workflow does not independently designate every predicted CGC as a PUL.
+
+Changing only the `overview.tsv` input of `get_abundances_rpm` is not sufficient to replace the comprehensive analysis with CAZyme-only or CGC-only analysis. The rule also requires `cgc_standard_out.tsv`, `substrate_prediction.tsv`, the complete comprehensive dbCAN output directory, and the associated declared abundance outputs.
 
 ---
