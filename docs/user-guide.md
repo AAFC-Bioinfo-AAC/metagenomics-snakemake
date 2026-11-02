@@ -56,7 +56,7 @@
 
 The **Metagenomics Snakemake pipeline** is a reproducible workflow for paired-end Illumina shotgun metagenomic reads from high-biomass, host-associated samples. It performs read-quality control, trimming, filtering and removal of host and PhiX sequences before conducting selected downstream analyses.
 
-The workflow rules are organized into modules. Users can run the complete workflow or selected analysis targets when the required upstream files and reference databases are available. Most downstream modules require host-depleted paired reads. The CAZyme module also requires the corresponding per-sample assemblies.
+The workflow rules are organized into modules. Users can run the complete workflow or selected analysis targets when the required upstream files and reference databases are available. Most downstream modules require host-depleted paired reads. The CAZyme module builds one shared metagenomic co-assembly from cleaned paired reads and quantifies each sample against that reference.
 
 Depending on the modules selected, the pipeline produces taxonomic abundance tables, antimicrobial resistance gene profiles, KEGG functional pathway profiles, metagenome-assembled genomes (MAGs) and carbohydrate-active enzyme (CAZyme) annotations and abundance tables.
 
@@ -110,20 +110,21 @@ flowchart TD
         M --> N((Quality Report))
     end
 
-    subgraph DBCAN ["dbCAN - CAZyme, CGC, Substrate"]
-      direction TB
-      I -->|Predict genes and proteins| D1[Pyrodigal]
-      D1 --> D2((Genes GFF and Proteins FASTA))
-
-      D2 -->|CAZyme annotation, CGC calling, substrate prediction| D3[run_dbCAN]
-      D3 --> D4((CAZyme, CGC, Substrate Outputs))
-
-      D2 -->|Map reads to assembly| D5[BWA-MEM]
-      D5 -->|Gene depth| D6[dbcan_utils]
-      D4 -->|overview.tsv| D7[dbcan_utils]
-      D6 -->|depth.txt| D7
-      D7 --> D8((Abundance Outputs in RPM))
-  end
+    subgraph DBCAN ["Shared metagenomic reference and dbCAN"]
+        direction TB
+        E --> DC["MEGAHIT co-assembly"]
+        DC --> DR["Shared contigs"]
+        DR --> D1["Pyrodigal"]
+        D1 --> D2["Shared genes and proteins"]
+        D2 --> D3["run_dbCAN: CAZymes, CGCs, substrates"]
+        DR --> D5["BWA-MEM and SAMtools"]
+        E -->|Each sample separately| D5
+        D5 --> D6["Gene read counts"]
+        D2 --> D6
+        D3 --> D7["dbcan_utils"]
+        D6 --> D7
+        D7 --> D8["Per-sample RPM tables"]
+    end
 
     subgraph QC_REPORTS ["Short Read Reports"]
         direction TB
@@ -738,7 +739,7 @@ The assembly checkpoint thresholds determine whether a sample proceeds to genome
   - An assembly must satisfy `min_total_bp`, `min_contigs` and `min_fasta_bytes` to pass.
   - The metrics table records the assembly file size, qualifying assembled length, number of qualifying contigs, total number of contigs, pass or fail status and reason for failure.
   - Only samples listed in `passed_checkpoint_assemblies.txt` proceed to assembly indexing, read mapping, binning and *CheckM2* analysis.
-  - This checkpoint is distinct from the `nonempty_assemblies` checkpoint used by the CAZyme module. The CAZyme checkpoint requires only a non-empty assembly.
+  - This checkpoint applies to individual-sample MAG binning. The CAZyme module uses a separate shared co-assembly and does not filter mapping samples using individual assembly quality.
 
 **Rule: `index_assembly` — Index each assembly**
 
@@ -816,172 +817,96 @@ The assembly checkpoint thresholds determine whether a sample proceeds to genome
 ---
 #### Module `db_can.smk`
 
-This module uses [run_dbCAN](https://run-dbcan.readthedocs.io/en/latest/) to annotate carbohydrate-active enzymes (CAZymes), identify CAZyme gene clusters (CGCs), predict CGC substrates and calculate per-sample abundances. The module operates on assemblies generated separately for each sample by `mag.smk`.
+This module co-assembles cleaned metagenomic reads into one shared DNA reference, predicts its genes and uses [run_dbCAN](https://run-dbcan.readthedocs.io/en/latest/) to annotate CAZymes, identify putative CAZyme gene clusters (CGCs) and predict substrates. Each sample's cleaned paired reads are mapped separately to this reference to calculate sample-specific abundances with consistent gene and CGC identifiers.
 
-A checkpoint restricts the analysis to samples with a non-empty assembly. The dbCAN reference database is not distributed with the pipeline. Its absolute path must be provided using `dbcan_DB_path` in `config/config.yaml`. 
+The dbCAN branch is independent of the individual-sample assemblies and assembly-quality checkpoint in `mag.smk`. Samples with poor individual assemblies can still be quantified against the shared reference. Set `dbcan_DB_path` to the absolute path of the prepared dbCAN database.
 
-**Selecting dbCAN analyses**
+**Reference construction and sample selection**
 
-The three run_dbCAN rules perform overlapping analyses:
+By default, all sample-sheet entries contribute cleaned DNA reads to the co-assembly. To exclude controls from reference construction, list their sample IDs under `dbcan_coassembly: exclude_samples`. Every sample-sheet entry is still mapped and quantified separately. For the Obi study, use `exclude_samples: ["LLCNEGAT01"]` and omit the control from biological comparisons.
 
-- `cazyme_annotation` performs CAZyme annotation.
-- `cgc_calling` performs CAZyme annotation and CGC identification.
-- `substrate_prediction` performs CAZyme annotation, CGC identification and substrate prediction.
+The co-assembly combines retained samples across treatments and time points. The individual-sample MAG assembly and binning workflow continues to run separately.
 
-The default `rule all` requests outputs from all three rules, causing the overlapping analyses to be run separately. To omit unnecessary analyses, remove their output targets from `rule all` in `workflow/Snakefile`. The rule definitions normally do not need to be removed from `workflow/rules/db_can.smk`.
-
-The most comprehensive output required should generally be selected:
-
-- For CAZyme annotation only, request `sample/sample_cazyme/overview.tsv`.
-- For CAZyme annotation and CGC identification, request `sample/sample_pul/cgc.gff`.
-- For CAZyme annotation, CGC identification and substrate prediction, request `sample/sample_dbcan/substrate_prediction.tsv`.
-- For the complete analysis including RPM abundance calculations, request `sample/sample_abund/fam_abund.out`. Its dependencies automatically trigger substrate prediction, read mapping, gene-depth calculation and the other abundance outputs.
-
-**Default analysis settings**
+**Default configuration settings**
 
 | Configuration setting | Default | Description |
-|---|---:|---|
-| `dbcan_depth: overlap_base_ratio` | `0.2` | Minimum required overlap proportion between an aligned read and a predicted gene. |
-| `dbcan_depth: mapping_quality` | `30` | Minimum mapping-quality score used for coverage calculation. |
-| `dbcan_depth: identity` | `0.98` | Minimum alignment identity used for coverage calculation. |
+| --- | ---: | --- |
+| `dbcan_coassembly: threads` | `24` | Threads used by MEGAHIT. |
+| `dbcan_coassembly: min_contig_length` | `1000` | Minimum retained co-assembly contig length, in bp. |
+| `dbcan_coassembly: memory_fraction` | `0.85` | Fraction of the rule's allocated `mem_mb` supplied to MEGAHIT as an absolute byte limit. |
+| `dbcan_coassembly: exclude_samples` | `[]` | Sample IDs excluded from reference construction, but still mapped. |
+| `dbcan_depth: overlap_base_ratio` | `0.2` | Minimum overlap proportion used by `dbcan_utils cal_coverage`. |
+| `dbcan_depth: mapping_quality` | `30` | Minimum alignment mapping-quality score. |
+| `dbcan_depth: identity` | `0.98` | Minimum alignment identity used for gene read counting. |
 
-*Pyrodigal* is run in metagenomic mode using `-p meta`. The run_dbCAN analyses use protein-input mode and abundance results are normalized as reads per million (RPM). Other settings not specified by the workflow retain their software defaults.
+The example SLURM profile allocates 256,000 MB and 4,320 minutes to `megahit_coassembly`. These are starting values, not estimates of every dataset's requirements. Adjust them for input size and community complexity. The MEGAHIT memory setting limits its main memory budget, not every allocation made by the program.
 
-**Checkpoint: `nonempty_assemblies` — Select assemblies for dbCAN analysis**
+**Rule: `megahit_coassembly` — Construct the shared DNA reference**
 
-- **Purpose:** Creates a list of samples with non-empty assemblies for downstream dbCAN analysis.
-- **Inputs:**
-  - Per-sample assemblies: `sample_assembly.contigs.fa`
-- **Outputs:**
-  - List of samples with non-empty assemblies: `nonempty_assemblies.txt`
-- **Notes:**
-  - An assembly is retained when the file exists and has a size greater than zero bytes.
-  - This checkpoint does not apply the `assembly_filter` thresholds used to select assemblies for MAG binning.
-  - Only samples listed in `nonempty_assemblies.txt` are included in the dbCAN targets generated by `rule all`.
+- **Purpose:** Co-assembles cleaned paired metagenomic reads across the selected samples using MEGAHIT.
+- **Inputs:** `sample_trimmed_clean_R1.fastq.gz` and `sample_trimmed_clean_R2.fastq.gz`.
+- **Outputs:** `final.contigs.fa` and `coassembly_samples.tsv` below `dbcan_coassembly_dir`.
+- **Notes:** The manifest records the reference-building samples and original read paths. Work files use the output filesystem rather than node-local `/tmp`. Failed or empty co-assemblies stop this branch rather than producing an empty success placeholder.
 
-**Rule: `pyrodigal` — Predict protein-coding genes**
+**Rule: `pyrodigal` — Predict shared genes and proteins**
 
-- **Purpose:** Uses *Pyrodigal* in metagenomic mode to predict protein-coding genes from each non-empty assembly. The predicted genes and proteins are used by the downstream CAZyme, CGC and substrate analyses.
-- **Inputs:**
-  - Per-sample assembly: `sample_assembly.contigs.fa`
-- **Outputs:**
-  - Gene annotations in GFF format: `sample_genes.gff`
-  - Protein translations in FASTA format: `sample_proteins.faa`
-  - Coding sequences in FASTA format: `sample.cds`
-- **Notes:**
-  - Gene prediction is performed using the metagenomic mode specified by `-p meta`.
-  - The processing log is written to `dbcan/prodigal/sample.log` beneath the configured log directory.
+- **Purpose:** Predicts protein-coding genes in metagenomic mode (`-p meta`).
+- **Outputs:** `coassembly/coassembly_genes.gff`, `coassembly/coassembly_proteins.faa` and `coassembly/coassembly.cds` below `dbcan_output_dir`.
+- **Notes:** `normalize_dbcan_gff.py` matches GFF gene IDs to protein FASTA identifiers without changing gene coordinates. Matching IDs are required to join annotations to read counts. Prediction with no proteins stops this branch.
 
-**Rule: `cazyme_annotation` — Identify and classify CAZymes**
+**Rule: `substrate_prediction` — Annotate the shared reference**
 
-- **Purpose:** Runs `run_dbcan CAZyme_annotation` on the predicted protein sequences to identify and classify CAZymes.
-- **Inputs:**
-  - Protein translations: `sample_proteins.faa`
-  - dbCAN database specified by `dbcan_DB_path`
-- **Outputs:**
-  - CAZyme annotation directory: `sample/sample_cazyme/`
-  - Integrated annotation summary: `sample/sample_cazyme/overview.tsv`
-- **Notes:**
-  - The output directory contains the principal run_dbCAN CAZyme annotation files, including:
-    - Standardized protein input: `uniInput.faa`
-    - dbCAN-family HMM results: `dbCAN_hmm_results.tsv`
-    - Raw dbCAN-subfamily HMM results: `dbCANsub_hmm_raw.tsv`
-    - Filtered dbCAN-subfamily HMM results: `dbCANsub_hmm_results.tsv`
-    - DIAMOND results against the CAZy protein database: `diamond.out`
-    - Integrated annotation summary: `overview.tsv`
-  - This analysis is also performed as part of `cgc_calling` and `substrate_prediction`.
-  - The processing log is written to `dbcan/cazyme_annotation/sample.log` beneath the configured log directory.
+- **Purpose:** Runs `run_dbcan easy_substrate` once in protein-input mode, performing CAZyme annotation, CGC identification and substrate prediction together.
+- **Inputs:** Shared proteins, matching GFF annotations and the prepared dbCAN database.
+- **Outputs:** `coassembly/annotation/overview.tsv`, `dbCANsub_hmm_results.tsv`, `cgc_standard_out.tsv` and `substrate_prediction.tsv`.
+- **Notes:** Additional run_dbCAN outputs, including PUL-homology results and synteny plots when produced, are retained in the annotation directory. CGCs are predicted from contig gene neighbourhoods; they are not all experimentally characterized PULs.
 
-**Rule: `cgc_calling` — Identify CAZyme gene clusters**
+**Alternative rules: `cazyme_annotation` and `cgc_calling`**
 
-- **Purpose:** Runs `run_dbcan easy_CGC` to perform CAZyme annotation, process the gene annotations and identify putative CGCs.
-- **Inputs:**
-  - Gene annotations: `sample_genes.gff`
-  - Protein translations: `sample_proteins.faa`
-  - dbCAN database specified by `dbcan_DB_path`
-- **Outputs:**
-  - CGC-analysis directory: `sample/sample_pul/`
-  - CGC annotations in GFF format: `sample/sample_pul/cgc.gff`
-- **Notes:**
-  - The output directory contains CAZyme annotation files such as `uniInput.faa`, `dbCAN_hmm_results.tsv`, `dbCANsub_hmm_raw.tsv`, `dbCANsub_hmm_results.tsv`, `diamond.out` and `overview.tsv`.
-  - Principal CGC outputs include `cgc.gff`, `cgc_standard_out.tsv`, `cgc_standard_out_summary.tsv` and `total_cgc_info.tsv`.
-  - Additional files annotate non-CAZyme genes that may contribute to CGC definition, including `diamond.out.peptidase`, `diamond.out.sulfatase`, `diamond.out.tc`, `diamond.out.tf` and `STP_hmm_results.tsv`.
-  - The directory suffix `_pul` is potentially misleading because this rule identifies CGCs rather than experimentally characterized polysaccharide utilization loci. Renaming it to `_cgc` would require coordinated changes to the rule outputs, parameters and targets in `workflow/Snakefile`.
-  - This analysis does not perform CGC substrate prediction.
-  - The processing log is written to `dbcan/cgc_calling/sample.log` beneath the configured log directory.
+These standalone rules operate once on the shared proteins. Their output directories are `coassembly/annotation_cazyme/` and `coassembly/annotation_cgc/`. Request them explicitly for CAZyme-only or CGC-only analysis. The default complete workflow requests only `substrate_prediction`, avoiding repeated annotation of the reference.
 
-**Rule: `substrate_prediction` — Identify CGCs and predict substrates**
+**Rule: `bwa_index_coassembly` — Index the shared reference**
 
-- **Purpose:** Runs `run_dbcan easy_substrate` to perform CAZyme annotation, identify CGCs and predict their likely carbohydrate substrates.
-- **Inputs:**
-  - Gene annotations: `sample_genes.gff`
-  - Protein translations: `sample_proteins.faa`
-  - dbCAN database specified by `dbcan_DB_path`
-- **Outputs:**
-  - Complete dbCAN-analysis directory: `sample/sample_dbcan/`
-  - Integrated CAZyme annotation summary: `sample/sample_dbcan/overview.tsv`
-  - CGC substrate predictions: `sample/sample_dbcan/substrate_prediction.tsv`
-- **Notes:**
-  - The directory contains the CAZyme annotation and CGC-identification outputs described for the preceding rules.
-  - Principal CGC files include `cgc.gff`, `CGC.faa`, `cgc_standard_out.tsv`, `cgc_standard_out_summary.tsv` and `total_cgc_info.tsv`.
-  - `substrate_prediction.tsv` contains the combined substrate predictions for the identified CGCs.
-  - `PUL_blast.out` contains DIAMOND results comparing CGCs with experimentally characterized PULs in the dbCAN-PUL database.
-  - The `synteny_pdf/` directory contains synteny plots for CGC–PUL matches when suitable matches are identified.
-  - This rule is the upstream annotation rule required by `get_abundances_rpm` as currently written.
-  - The processing log is written to `dbcan/substrate_prediction/sample.log` beneath the configured log directory.
+- **Purpose:** Builds one BWA index reused by all samples.
+- **Outputs:** Five retained index files with prefix `coassembly/bwa_index/coassembly`: `.amb`, `.ann`, `.bwt`, `.pac` and `.sa`.
 
-**Rule: `bwa_mem_mapping` — Map reads to the assembly**
+**Rule: `bwa_mem_mapping` — Map each sample separately**
 
-- **Purpose:** Maps the host-depleted paired reads from each sample back to the corresponding assembly using *BWA-MEM*. *SAMtools* then creates a coordinate-sorted BAM file and its index.
-- **Inputs:**
-  - Per-sample assembly: `sample_assembly.contigs.fa`
-  - Host-depleted R1 reads: `sample_trimmed_clean_R1.fastq.gz`
-  - Host-depleted R2 reads: `sample_trimmed_clean_R2.fastq.gz`
-- **Outputs:**
-  - Coordinate-sorted alignment file: `mapping/sample.bam`
-  - Temporary BAM index: `mapping/sample.bam.bai`
-  - Temporary BWA assembly-index files: `.amb`, `.ann`, `.bwt`, `.pac` and `.sa`
-- **Notes:**
-  - The BAM file is retained for coverage calculation.
-  - The BAM index and BWA index files are marked with `temp()` and may be removed by Snakemake after their downstream dependencies have completed.
-  - The processing log is written to `dbcan/bwa_mem_mapping/sample.log` beneath the configured log directory.
+- **Purpose:** Maps each sample's cleaned paired reads to the shared co-assembly using BWA-MEM and creates a coordinate-sorted BAM and index using SAMtools.
+- **Outputs:** `coassembly/samples/{sample}/mapping/{sample}.bam` and `.bam.bai`.
+- **Notes:** All five BWA index files are declared dependencies. Threads are divided between BWA and SAMtools. Sorting work files are placed alongside the sample's BAM and removed on exit. `samtools quickcheck` checks the BAM before indexing.
 
-**Rule: `dbcan_depth` — Calculate gene-level sequencing depth**
+**Rule: `dbcan_depth` — Calculate gene read counts**
 
-- **Purpose:** Uses `dbcan_utils cal_coverage` to calculate sequencing depth for the genes predicted by *Pyrodigal*. These depth values are used to estimate CAZyme and CGC abundances.
-- **Inputs:**
-  - Gene annotations: `sample_genes.gff`
-  - Coordinate-sorted alignment file: `mapping/sample.bam`
-  - BAM index: `mapping/sample.bam.bai`
-- **Outputs:**
-  - Gene-depth table: `sample/sample_abund/sample.depth.txt`
-- **Notes:**
-  - Alignments are filtered using the configured overlap, mapping-quality and identity thresholds.
-  - The default values are `0.2`, `30` and `0.98`, respectively.
-  - The processing log is written to `dbcan/dbcan_depth/sample.log` beneath the configured log directory.
+- **Purpose:** Runs `dbcan_utils cal_coverage` with the shared GFF and each sample's BAM, applying the configured overlap, mapping-quality and identity thresholds.
+- **Outputs:** `coassembly/samples/{sample}/{sample}_abund/{sample}.depth.txt`.
+- **Notes:** Despite its filename, the table contains gene identifiers, gene lengths and assigned read counts. These are dbCAN-filtered counts, not a raw paired-fragment count matrix.
 
-**Rule: `get_abundances_rpm` — Calculate normalized CAZyme and CGC abundances**
+**Rule: `get_abundances_rpm` — Calculate per-sample functional abundances**
 
-- **Purpose:** Uses the annotation results and gene-depth table to calculate CAZyme, CGC and substrate abundances as reads per million.
-- **Inputs:**
-  - Integrated annotation summary from `substrate_prediction`: `sample/sample_dbcan/overview.tsv`
-  - Gene-depth table: `sample/sample_abund/sample.depth.txt`
-- **Outputs:**
-  - CAZyme-family abundances: `fam_abund.out`
-  - CAZyme-subfamily abundances: `subfam_abund.out`
-  - Enzyme Commission number abundances: `EC_abund.out`
-  - CAZyme-associated substrate abundances: `fam_substrate_abund.out`
-  - CGC abundances: `CGC_abund.out`
-  - CGC substrate abundances inferred by PUL homology: `CGC_substrate_PUL_homology.out`
-  - CGC substrate abundances inferred using majority voting: `CGC_substrate_majority_voting.out`
-- **Notes:**
-  - All abundance files are written beneath `sample/sample_abund/`.
-  - If `overview.tsv` is empty or contains only its header, the rule creates empty abundance files so the workflow can continue. It also creates `did_not_run_get_abundances_rpm.txt` to document why abundance calculations were skipped.
-  - As written, this rule requires the complete output directory produced by `substrate_prediction`.
-  - Changing only the `overview` input to the output of `cazyme_annotation` or `cgc_calling` is insufficient. The `dbcan_dir` parameter, commands and declared outputs would also need to be changed because CAZyme-only and CGC-only analyses do not produce all inputs required for substrate-level abundance calculations.
-  - The processing log is written to `dbcan/get_abundances_rpm/sample.log` beneath the configured log directory.
+- **Purpose:** Combines each sample's read counts with the shared annotations to calculate CAZyme-family, subfamily, EC, substrate and CGC abundances.
+- **Outputs:** `fam_abund.out`, `subfam_abund.out`, `EC_abund.out`, `fam_substrate_abund.out`, `CGC_abund.out`, `CGC_substrate_PUL_homology.out` and `CGC_substrate_majority_voting.out` in `coassembly/samples/{sample}/{sample}_abund/`.
+- **Notes:** For run_dbCAN 5.2.8, RPM uses the sum of gene-assigned counts in the sample's depth table as its denominator, rather than all input reads. Genes with multiple family assignments can contribute to more than one family. Header-only annotation, CGC or prediction tables produce empty corresponding outputs and a `did_not_run_get_abundances_rpm.txt` explanation. Other command failures stop the rule.
+
+**Running only the shared-reference CAZyme branch**
+
+After configuring the project paths, databases, environments and SLURM profile, run from the repository root:
+
+```bash
+snakemake --snakefile workflow/Snakefile --profile profiles/slurm dbcan_all --dry-run
+snakemake --snakefile workflow/Snakefile --profile profiles/slurm dbcan_all
+```
+
+**Migrating existing projects**
+
+Add `dbcan_coassembly_dir` and the `dbcan_coassembly` settings to your existing configuration. Preserve your project-specific database and read paths. Add the new rules' allocations to your SLURM profile and confirm run_dbCAN 5.2.8 is available in the environment used for this branch.
+
+New outputs are placed below `dbcan_output_dir/coassembly/`. Legacy per-sample annotation and abundance files are not used by this branch. Recompute and re-merge abundance tables from the new location; do not combine old-reference and shared-reference results in the same comparison.
+
+The DNA co-assembly and its gene identifiers can also serve as a reference for matched metatranscriptomic mapping. This metagenomics module maps DNA reads; configuring RNA quantification against the same reference is a separate step.
 
 ---
+
 ## Data
 
 The workflow requires paired-end metagenomic sequencing reads in FASTQ format.
@@ -1044,6 +969,9 @@ Memory, runtime, partition, account, and other SLURM resource settings are confi
 | `map_reads: max_mem_per_thread` | Maximum memory available to each SAMtools sorting thread. The configured value is `4G`. Total sorting memory can be several times this value when multiple sorting threads are used. |
 | `metabat2: min_contig_length` | Minimum contig length considered by MetaBAT2 during binning. The configured value is `2500` bp. |
 | `checkm2: memory_usage` | Optional CheckM2 memory-control argument. The configured value is `--lowmem`, which reduces memory use during the DIAMOND annotation step. Use an empty string to run without this option. |
+| `dbcan_coassembly: min_contig_length` | Minimum shared-reference contig length in bp; default `1000`. |
+| `dbcan_coassembly: memory_fraction` | Fraction of allocated job memory supplied to MEGAHIT; default `0.85`. |
+| `dbcan_coassembly: exclude_samples` | Sample IDs excluded from reference construction; default `[]`. |
 | `dbcan_depth: overlap_base_ratio` | Minimum overlap ratio used when calculating dbCAN gene coverage. The configured value is `0.2`. |
 | `dbcan_depth: mapping_quality` | Minimum mapping-quality threshold used during dbCAN coverage calculations. The configured value is `30`. |
 | `dbcan_depth: identity` | Minimum alignment-identity threshold used during dbCAN coverage calculations. The configured value is `0.98`. |
@@ -1584,7 +1512,7 @@ snakemake \
   --cores 1
 ```
 
-The MAG and dbCAN modules contain prewarming rules that expose environments associated with checkpoint-dependent jobs. Separate manual executions of `prewarm_mag_gate` and `prewarm_dbcan_gate` are not normally required.
+The MAG module contains prewarming rules for checkpoint-dependent jobs. The dbCAN branch has a static dependency graph, so its environments are visible without a prewarming checkpoint.
 
 MinPath is an exception: its source code and bundled `glpsol` executable must be installed separately as described in the [MinPath](#minpath) section.
 
@@ -1738,7 +1666,8 @@ Output locations are controlled by the directory settings in `config/config.yaml
 | AMR screening | `amr_screening_dir` |
 | KEGG | `kegg_output_dir` |
 | Assemblies and MAGs | `mag_output_dir` |
-| dbCAN | `dbcan_output_dir` |
+| dbCAN shared annotations and sample abundances | `dbcan_output_dir` |
+| Shared DNA co-assembly | `dbcan_coassembly_dir` |
 | Software versions | `software_versions` |
 
 In the tables below, `{sample}` represents the sample identifier from the sample sheet.
@@ -1837,36 +1766,24 @@ The assembly checkpoint evaluates each sample before downstream binning. Only as
 
 ### dbCAN Module (`db_can.smk`)
 
-The dbCAN checkpoint includes samples with a non-empty assembly. This checkpoint is separate from the more restrictive MAG assembly-quality checkpoint.
+All samples are quantified against the same DNA co-assembly. Paths below are relative to `dbcan_output_dir` unless specified otherwise.
 
-| Output type | Filename or directory | Retention | Description |
-| --- | --- | --- | --- |
-| dbCAN checkpoint list | `nonempty_assemblies.txt` | Retained | Sample identifiers with non-empty assemblies selected for dbCAN analysis. This file is written below `mag_output_dir`. |
-| Gene annotations | `{sample}_genes.gff` | Retained | Protein-coding genes predicted by Pyrodigal in metagenomic mode. |
-| Protein sequences | `{sample}_proteins.faa` | Retained | Predicted proteins used as input for run_dbCAN. |
-| Coding sequences | `{sample}.cds` | Retained | Predicted nucleotide coding sequences. |
-| Standalone CAZyme annotation | `{sample}_cazyme/` | Retained when requested | Results from the optional `cazyme_annotation` rule, including `overview.tsv`. |
-| Standalone CGC analysis | `{sample}_pul/` | Retained when requested | Results from the optional `cgc_calling` rule, including `overview.tsv`, `cgc.gff`, and `cgc_standard_out.tsv`. The `_pul` directory name is retained for workflow compatibility. |
-| Comprehensive dbCAN analysis | `{sample}_dbcan/` | Retained | Results from `substrate_prediction`, including CAZyme annotations, CGCs, `cgc_standard_out.tsv`, `substrate_prediction.tsv`, PUL-homology results, and synteny plots when produced. |
-| Read-alignment BAM | `mapping/{sample}.bam` | Retained | Cleaned reads mapped to the corresponding sample assembly with BWA-MEM and coordinate-sorted with SAMtools. |
-| BAM index | `mapping/{sample}.bam.bai` | Temporary | BAM index required for gene-level coverage calculation. |
-| BWA assembly index | `{sample}_assembly.contigs.fa.amb`, `.ann`, `.bwt`, `.pac`, `.sa` | Temporary | BWA index files generated from the sample assembly. |
-| Gene-depth table | `{sample}_abund/{sample}.depth.txt` | Retained | Sequencing depth of predicted genes after applying the configured overlap, mapping-quality, and identity thresholds. |
-| CAZyme-family abundance | `{sample}_abund/fam_abund.out` | Retained | CAZyme-family abundance normalized as reads per million (RPM). |
-| CAZyme-subfamily abundance | `{sample}_abund/subfam_abund.out` | Retained | CAZyme-subfamily abundance normalized as RPM. |
-| EC abundance | `{sample}_abund/EC_abund.out` | Retained | Abundance of Enzyme Commission numbers associated with CAZymes, normalized as RPM. |
-| Family-based substrate abundance | `{sample}_abund/fam_substrate_abund.out` | Retained | Substrate abundance inferred from CAZyme families and normalized as RPM. |
-| CGC abundance | `{sample}_abund/CGC_abund.out` | Retained | CAZyme gene cluster abundance normalized as RPM. |
-| PUL-homology substrate abundance | `{sample}_abund/CGC_substrate_PUL_homology.out` | Retained | CGC substrate abundance inferred by homology to characterized PULs. |
-| Majority-voting substrate abundance | `{sample}_abund/CGC_substrate_majority_voting.out` | Retained | CGC substrate abundance inferred using majority voting. |
-| Synteny plots | `{sample}_dbcan/synteny_pdf/` | Retained when produced | Visual comparisons between predicted CGCs and characterized PULs. |
-| Abundance-skip marker | `{sample}_abund/did_not_run_get_abundances_rpm.txt` | Conditional | Explains which abundance calculations were skipped when annotation, CGC, or substrate tables contained no data rows. |
+| Output type | Filename or directory | Description |
+| --- | --- | --- |
+| Shared DNA reference | `final.contigs.fa` below `dbcan_coassembly_dir` | MEGAHIT co-assembly of selected samples' cleaned read pairs. |
+| Reference sample manifest | `coassembly_samples.tsv` below `dbcan_coassembly_dir` | Reference-building sample IDs and input paths. |
+| Gene annotations | `coassembly/coassembly_genes.gff` | Shared genes with IDs matching the protein sequences. |
+| Protein sequences | `coassembly/coassembly_proteins.faa` | Shared predicted proteins. |
+| Coding sequences | `coassembly/coassembly.cds` | Shared predicted nucleotide coding sequences. |
+| Comprehensive annotations | `coassembly/annotation/` | CAZyme, CGC and substrate results. |
+| Standalone annotations | `coassembly/annotation_cazyme/`, `coassembly/annotation_cgc/` | Alternative analyses retained only when explicitly requested. |
+| BWA index | `coassembly/bwa_index/coassembly.{amb,ann,bwt,pac,sa}` | One retained index reused across samples. |
+| Sample alignments | `coassembly/samples/{sample}/mapping/{sample}.bam` and `.bam.bai` | Separate mapping for each sample. |
+| Gene read counts | `coassembly/samples/{sample}/{sample}_abund/{sample}.depth.txt` | Gene ID, gene length and assigned read count. |
+| Sample functional abundances | `coassembly/samples/{sample}/{sample}_abund/` | Family, subfamily, EC, substrate and CGC RPM files. |
+| Abundance-skip marker | `coassembly/samples/{sample}/{sample}_abund/did_not_run_get_abundances_rpm.txt` | Conditional explanation of skipped annotation-dependent calculations. |
 
-The default `rule all` requests the comprehensive `substrate_prediction` analysis and the outputs of `get_abundances_rpm`. The standalone `cazyme_annotation` and `cgc_calling` rules are available as alternative explicit targets but are not required by the default complete workflow.
-
-Changing only the `overview.tsv` input of `get_abundances_rpm` is not sufficient to replace the comprehensive analysis with a CAZyme-only or CGC-only analysis. The rule also requires `cgc_standard_out.tsv`, `substrate_prediction.tsv`, the complete dbCAN output directory, and the associated declared abundance outputs.
-
-Predicted CGCs are compared with experimentally characterized PULs to infer likely substrates. The workflow does not independently designate every predicted CGC as a PUL.
+The complete branch runs `easy_substrate` once and reuses its annotations for all samples. No individual-assembly checkpoint filters the samples being mapped. See the [module description](#module-db_cansmk) for normalization, sample exclusion and migration details.
 
 ---
 
@@ -1877,61 +1794,5 @@ Predicted CGCs are compared with experimentally characterized PULs to infer like
 | Complete environment summary | `software_versions_summary.txt` | Package listings collected from environments found under the configured Conda prefix. |
 | Key software summary | `key_bioinformatics_software.txt` | Text summary containing versions of principal bioinformatics programs. |
 | Key software HTML report | `key_bioinformatics_software.html` | HTML version of the key-software summary included in the Snakemake report. |
-
----
-
-### MAG Module (`mag.smk`)
-
-The assembly checkpoint evaluates each sample before downstream binning. Only assemblies satisfying all criteria under `assembly_filter` in `config/config.yaml` proceed through the MAG workflow.
-
-| Output type | Filename or directory | Retention | Description |
-| --- | --- | --- | --- |
-| Sample assembly | `{sample}_assembly.contigs.fa` | Retained | MEGAHIT assembly generated independently for each sample. An empty file is created if MEGAHIT produces no contigs. |
-| Assembly checkpoint list | `passed_checkpoint_assemblies.txt` | Retained | Sample identifiers for assemblies that passed all configured checkpoint criteria. |
-| Assembly metrics | `samples_with_contigs.metrics.tsv` | Retained | File size, qualifying base pairs, qualifying contig count, total contig count, pass/fail status, and failure reason for each assembly. |
-| Bowtie2 assembly index | `{sample}_assembly.1.bt2l`, `{sample}_assembly.2.bt2l`, `{sample}_assembly.3.bt2l`, `{sample}_assembly.4.bt2l`, `{sample}_assembly.rev.1.bt2l`, `{sample}_assembly.rev.2.bt2l` | Temporary | Large Bowtie2 index generated for each assembly that passes the checkpoint. |
-| Assembly-alignment BAM | `{sample}.bam` | Retained | Cleaned paired-end reads mapped back to the corresponding sample assembly and coordinate-sorted. |
-| Contig-depth table | `metabat2/{sample}/{sample}_depth.txt` | Retained | Per-contig depth and variance generated for MetaBAT2. |
-| Genome bins | `metabat2/{sample}/bins/` | Retained | Numbered genome-bin FASTA files produced by MetaBAT2. The directory may also contain `BinInfo.txt`. |
-| Unbinned and excluded contigs | `metabat2/{sample}/unbinned/` | Retained | MetaBAT2 outputs containing unbinned, low-depth, or short contigs when produced. |
-| CheckM2 quality report | `metabat2/{sample}/checkm2/quality_report.tsv` | Retained | CheckM2 completeness, contamination, and quality estimates for recovered bins. |
-| CheckM2 status | `metabat2/{sample}/checkm2/status.tsv` | Retained | Indicates whether CheckM2 completed or was skipped because MetaBAT2 produced no bins. |
-
-The Bowtie2 assembly indexes are declared with `temp()` and may be removed after all downstream rules requiring them have completed. To retain them, remove the corresponding `temp()` declaration from `index_assembly` in `workflow/rules/mag.smk`.
-
----
-
-### dbCAN Module (`db_can.smk`)
-
-The dbCAN checkpoint selects samples with non-empty assemblies. This is separate from the more restrictive MAG assembly-quality checkpoint; consequently, an assembly may proceed through dbCAN even if it does not meet all MAG binning thresholds.
-
-| Output type | Filename or directory | Retention | Description |
-| --- | --- | --- | --- |
-| dbCAN checkpoint list | `nonempty_assemblies.txt` | Retained | Sample identifiers with non-empty assemblies selected for dbCAN analysis. This file is written below `mag_output_dir`. |
-| Gene annotations | `{sample}/{sample}_genes.gff` | Retained | Protein-coding genes predicted by Pyrodigal in metagenomic mode. |
-| Protein sequences | `{sample}/{sample}_proteins.faa` | Retained | Predicted proteins used as input for run_dbCAN. |
-| Coding sequences | `{sample}/{sample}.cds` | Retained | Predicted nucleotide coding sequences. |
-| Standalone CAZyme annotation | `{sample}/{sample}_cazyme/` | Retained when requested | Results from the optional `cazyme_annotation` rule, including `overview.tsv`. |
-| Standalone CGC analysis | `{sample}/{sample}_pul/` | Retained when requested | Results from the optional `cgc_calling` rule, including `overview.tsv`, `cgc.gff`, and `cgc_standard_out.tsv`. The `_pul` directory name is retained for workflow compatibility. |
-| Comprehensive dbCAN analysis | `{sample}/{sample}_dbcan/` | Retained | Results from `substrate_prediction`, including CAZyme annotations, CGCs, `cgc_standard_out.tsv`, `substrate_prediction.tsv`, PUL-homology results, and synteny plots when produced. |
-| Read-alignment BAM | `{sample}/mapping/{sample}.bam` | Retained | Cleaned reads mapped to the corresponding sample assembly with BWA-MEM and coordinate-sorted with SAMtools. |
-| BAM index | `{sample}/mapping/{sample}.bam.bai` | Temporary | BAM index required for gene-level coverage calculation. |
-| BWA assembly index | `{sample}_assembly.contigs.fa.amb`, `.ann`, `.bwt`, `.pac`, `.sa` | Temporary | BWA index files generated from the corresponding sample assembly. |
-| Gene-depth table | `{sample}/{sample}_abund/{sample}.depth.txt` | Retained | Sequencing depth of predicted genes after applying the configured overlap, mapping-quality, and identity thresholds. |
-| CAZyme-family abundance | `{sample}/{sample}_abund/fam_abund.out` | Retained | CAZyme-family abundance normalized as reads per million (RPM). |
-| CAZyme-subfamily abundance | `{sample}/{sample}_abund/subfam_abund.out` | Retained | CAZyme-subfamily abundance normalized as RPM. |
-| EC abundance | `{sample}/{sample}_abund/EC_abund.out` | Retained | Abundance of Enzyme Commission numbers associated with CAZymes, normalized as RPM. |
-| Family-based substrate abundance | `{sample}/{sample}_abund/fam_substrate_abund.out` | Retained | Substrate abundance inferred from CAZyme families and normalized as RPM. |
-| CGC abundance | `{sample}/{sample}_abund/CGC_abund.out` | Retained | CAZyme gene cluster abundance normalized as RPM. |
-| PUL-homology substrate abundance | `{sample}/{sample}_abund/CGC_substrate_PUL_homology.out` | Retained | CGC substrate abundance inferred by homology to experimentally characterized PULs. |
-| Majority-voting substrate abundance | `{sample}/{sample}_abund/CGC_substrate_majority_voting.out` | Retained | CGC substrate abundance inferred using majority voting. |
-| Synteny plots | `{sample}/{sample}_dbcan/synteny_pdf/` | Retained when produced | Visual comparisons between predicted CGCs and experimentally characterized PULs. |
-| Abundance-skip marker | `{sample}/{sample}_abund/did_not_run_get_abundances_rpm.txt` | Conditional | Explains which abundance calculations were skipped when annotation, CGC, or substrate tables contained no data rows. |
-
-The default `rule all` requests the comprehensive `substrate_prediction` analysis and the outputs from `get_abundances_rpm`. The standalone `cazyme_annotation` and `cgc_calling` rules are alternative explicit targets and are not required by the default complete workflow.
-
-CAZyme gene clusters are identified before substrate prediction. Predicted CGCs are compared with experimentally characterized PULs to infer likely substrates; the workflow does not independently designate every predicted CGC as a PUL.
-
-Changing only the `overview.tsv` input of `get_abundances_rpm` is not sufficient to replace the comprehensive analysis with CAZyme-only or CGC-only analysis. The rule also requires `cgc_standard_out.tsv`, `substrate_prediction.tsv`, the complete comprehensive dbCAN output directory, and the associated declared abundance outputs.
 
 ---
