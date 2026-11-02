@@ -28,6 +28,7 @@ kegg_custom_list: "code/metagenomics-snakemake/resources"
 kegg_diamond_DB: "data/reference/databases/KEGG"
 mag_output_dir: "workspace/individual_assemblies"
 dbcan_output_dir: "workspace/dbcan_analysis"
+dbcan_coassembly_dir: "workspace/metagenomic_coassembly"
 
 ### File path for CARD database if the user set it up. This is a fallback if there is no common database
 card_latest: "code/metagenomics-snakemake/localDB"
@@ -160,6 +161,14 @@ checkm2:
   threads: 4
   memory_usage: "--lowmem" # --lowmem flag reduces the RAM usage of the DIAMOND annotation step by half.
 ## db_can.smk
+dbcan_coassembly:
+  threads: 24
+  min_contig_length: 1000
+  # Fraction of this job's mem_mb allocation supplied to MEGAHIT as bytes.
+  memory_fraction: 0.85
+  # Controls can be excluded from reference construction but still mapped.
+  # For the Obi study, use ["LLCNEGAT01"]. IDs must match the sample sheet.
+  exclude_samples: []
 pyrodigal:
   threads: 8
 cazyme_annotation:
