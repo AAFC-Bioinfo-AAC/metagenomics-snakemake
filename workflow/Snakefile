@@ -75,6 +75,7 @@ SOFTWARE_VERSIONS  = relpath("software_versions")
 KEGG_DIAMOND       = relpath("kegg_diamond_DB")
 KEGG_CUSTOM_LIST   = relpath("kegg_custom_list")
 SAMPLE_DBCAN       = relpath("dbcan_output_dir")
+DBCAN_COASSEMBLY   = relpath("dbcan_coassembly_dir")
 
 
 # -------------------------------------------------------------------
@@ -246,8 +247,8 @@ include: "rules/db_can.smk"
 # -------------------------------------------------------------------
 
 rule all:
+    default_target: True
     input:
-
         # Reads depleted of host and PhiX
         expand(
             f"{HOST_DEP_DIR}/{{sample}}_trimmed_clean_R1.fastq.gz",
@@ -385,11 +386,14 @@ rule all:
             sample=get_filtered_samples(wc)
         ),
 
-        # Complete dbCAN analysis for non-empty assemblies
-        lambda wc: expand(
-            f"{SAMPLE_DBCAN}/{{sample}}/"
+        # Shared DNA reference; quantify every sample, even if its own
+        # individual MAG assembly was empty or failed the MAG checkpoint.
+        f"{DBCAN_COASSEMBLY}/final.contigs.fa",
+        f"{DBCAN_COASSEMBLY}/coassembly_samples.tsv",
+        expand(
+            f"{DBCAN_SHARED}/samples/{{sample}}/"
             f"{{sample}}_abund/fam_abund.out",
-            sample=get_filtered_samples_dbcan(wc)
+            sample=SAMPLE_NAMES
         ),
 
         # Software versions
